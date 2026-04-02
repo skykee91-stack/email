@@ -59,6 +59,13 @@ export default function TemplatesPage() {
     fetchTemplates();
   };
 
+  // 프리셋 템플릿 등록
+  const loadPreset = async (campaign: string) => {
+    if (!confirm(`${campaign} 1~4차 템플릿을 자동으로 등록할까요?`)) return;
+    await fetch(`/api/templates/presets?campaign=${encodeURIComponent(campaign)}`, { method: "POST" });
+    fetchTemplates();
+  };
+
   // 상품/캠페인 목록 추출
   const campaigns = [...new Set(templates.map(t => t.category).filter(Boolean))] as string[];
 
@@ -82,10 +89,16 @@ export default function TemplatesPage() {
           <h1 className="text-2xl font-bold text-white">이메일 템플릿</h1>
           <p className="text-gray-400 mt-1">상품/캠페인별 이메일 디자인 관리</p>
         </div>
-        <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ name: "", step: 1, subject: "", htmlBody: "", category: "", abVariant: "" }); }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          {showForm ? "취소" : "+ 새 템플릿"}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => loadPreset("셀포")}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            셀포 1~4차 자동등록
+          </button>
+          <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ name: "", step: 1, subject: "", htmlBody: "", category: "", abVariant: "" }); }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            {showForm ? "취소" : "+ 새 템플릿"}
+          </button>
+        </div>
       </div>
 
       {/* 상품/캠페인 필터 */}
