@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 중복 체크 (placeId가 있으면)
+    // 중복 체크 (placeId 또는 이메일)
     if (body.placeId) {
       const existing = await prisma.business.findUnique({
         where: { placeId: body.placeId },
@@ -74,6 +74,17 @@ export async function POST(req: NextRequest) {
       if (existing) {
         return NextResponse.json(
           { error: '이미 등록된 업체입니다', business: existing },
+          { status: 409 }
+        )
+      }
+    }
+    if (body.email) {
+      const existingByEmail = await prisma.business.findFirst({
+        where: { email: body.email },
+      })
+      if (existingByEmail) {
+        return NextResponse.json(
+          { error: '이미 등록된 이메일입니다', business: existingByEmail },
           { status: 409 }
         )
       }
