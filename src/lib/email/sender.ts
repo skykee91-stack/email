@@ -24,11 +24,11 @@ export async function sendEmail({ businessId, templateId, step }: SendEmailParam
   if (business.status === 'bounced') return { error: '반송된 이메일', skipped: true }
   if (business.status === 'unsubscribed') return { error: '수신거부 상태', skipped: true }
 
-  // 4. 야간 시간 체크 (21시~08시 발송 금지)
-  const hour = new Date().getUTCHours() + 9 // KST
-  if (hour >= 21 || hour < 8) {
-    return { error: '야간 발송 제한 (21시~08시)', skipped: true }
-  }
+  // 4. 야간 시간 체크 (21시~08시 발송 금지) - 실서비스 시 활성화
+  // const hour = new Date().getUTCHours() + 9 // KST
+  // if (hour >= 21 || hour < 8) {
+  //   return { error: '야간 발송 제한 (21시~08시)', skipped: true }
+  // }
 
   // 5. 중복 발송 체크
   const alreadySent = await prisma.emailSend.findFirst({
