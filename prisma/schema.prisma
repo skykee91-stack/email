@@ -1,0 +1,187 @@
+// Prisma 스키마 - 영업 이메일 자동화 시스템
+// DB 테이블을 정의하는 파일
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──────────────────────────────────────
+// 1. 업체 정보 (스크래퍼로 수집한 데이터)
+// ──────────────────────────────────────
+model Business {
+  id            String    @id @default(uuid())
+  name          String    // 업체명 (예: "강남 뷰티살롱")
+  phone         String?   // 대표 전화번호
+  personalPhone String?   // 개인번호 (010)
+  email         String?   // 이메일
+  naverId       String?   // 네이버 아이디
+  address       String?   // 주소
+  category      String?   // 업종 (미용실, 헬스장 등)
+  region        String?   // 지역 (서울 강남 등)
+  blogUrl       String?   // 블로그 URL
+  homepageUrl   String?   // 홈페이지 URL
+  placeId       String?   @unique // 네이버 Place ID (중복 방지)
+  status        String    @default("active") // active / unsubscribed / bounced
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  emailSends    EmailSend[]
+  pageVisits    PageVisit[]
+  hotLead       HotLead?
+  deals         Deal[]
+  unsubscribe   Unsubscribe?
+
+  @@index([email])
+  @@index([category])
+  @@index([region])
+  @@index([status])
+}
+
+// ──────────────────────────────────────
+// 2. 이메일 템플릿
+// ──────────────────────────────────────
+model EmailTemplate {
+  id         String   @id @default(uuid())
+  name       String   // 템플릿 이름
+  step       Int      // 발송 단계 (1~4)
+  subject    String   // 이메일 제목
+  htmlBody   String   // HTML 본문
+  textBody   String?  // 텍스트 본문
+  category   String?  // 대상 업종 (null이면 전체)
+  abVariant  String?  // A/B 테스트 변형 (A, B, C 등)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  emailSends EmailSend[]
+}
+
+// ──────────────────────────────────────
+// 3. 발송 기록
+// ──────────────────────────────────────
+model EmailSend {
+  id             String    @id @default(uuid())
+  businessId     String
+  templateId     String?
+  step           Int       // 몇 차 발송 (1~4)
+  brevoMessageId String?   // Brevo 메시지 ID
+  status         String    @default("queued") // queued/sent/delivered/bounced
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  openCount      Int       @default(0)
+  clickCount     Int       @default(0)
+  bouncedAt      DateTime?
+  bounceReason   String?
+  repliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  business   Business       @relation(fields: [businessId], references: [id])
+  template   EmailTemplate? @relation(fields: [templateId], references: [id])
+  pageVisits PageVisit[]
+
+  @@index([businessId])
+  @@index([status])
+  @@index([step])
+  @@index([sentAt])
+}
+
+// ──────────────────────────────────────
+// 4. 랜딩페이지 방문 추적
+// ──────────────────────────────────────
+model PageVisit {
+  id              String   @id @default(uuid())
+  sendId          String?
+  businessId      String
+  visitedAt       DateTime @default(now())
+  scrollPercent   Int      @default(0)
+  durationSeconds Int      @default(0)
+  clickCount      Int      @default(0)
+  utmSource       String?
+  utmCampaign     String?
+  utmContent      String?
+
+  send     EmailSend? @relation(fields: [sendId], references: [id])
+  business Business   @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+  @@index([sendId])
+}
+
+// ──────────────────────────────────────
+// 5. 핫 리드 (관심 높은 업체)
+// ──────────────────────────────────────
+model HotLead {
+  id           String    @id @default(uuid())
+  businessId   String    @unique
+  score        Float     @default(0)
+  tier         String    @default("C") // S / A / B / C
+  totalOpens   Int       @default(0)
+  totalClicks  Int       @default(0)
+  totalVisits  Int       @default(0)
+  maxScroll    Int       @default(0)
+  maxDuration  Int       @default(0)
+  hasReplied   Boolean   @default(false)
+  lastActivity DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([tier])
+  @@index([score(sort: Desc)])
+}
+
+// ──────────────────────────────────────
+// 6. 수신거부 (법적 필수)
+// ──────────────────────────────────────
+model Unsubscribe {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  businessId     String?  @unique
+  reason         String?
+  unsubscribedAt DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id])
+}
+
+// ──────────────────────────────────────
+// 7. 수집 작업 기록
+// ──────────────────────────────────────
+model ScrapeJob {
+  id             String    @id @default(uuid())
+  region         String
+  category       String
+  mode           String    @default("place")
+  maxResults     Int       @default(100)
+  status         String    @default("pending") // pending/running/done/failed
+  totalFound     Int       @default(0)
+  totalSaved     Int       @default(0)
+  withEmail      Int       @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  errorMessage   String?
+  scheduled      Boolean   @default(false)
+  cronExpression String?
+  createdAt      DateTime  @default(now())
+}
+
+// ──────────────────────────────────────
+// 8. 거래/계약 (ROI 측정용)
+// ──────────────────────────────────────
+model Deal {
+  id             String   @id @default(uuid())
+  businessId     String
+  stage          String   @default("replied") // replied / meeting / contracted
+  amount         Float?
+  notes          String?
+  stageChangedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+}
