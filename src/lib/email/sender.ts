@@ -9,9 +9,10 @@ interface SendEmailParams {
   businessId: string
   templateId: string
   step: number
+  profileId?: string // 발신자 프로필 ID (없으면 기본 프로필 사용)
 }
 
-export async function sendEmail({ businessId, templateId, step }: SendEmailParams) {
+export async function sendEmail({ businessId, templateId, step, profileId }: SendEmailParams) {
   // 1. 업체 정보
   const business = await prisma.business.findUnique({ where: { id: businessId } })
   if (!business?.email) return { error: '이메일 없음', skipped: true }
@@ -53,9 +54,27 @@ export async function sendEmail({ businessId, templateId, step }: SendEmailParam
   })
 
   try {
-    // 8. Brevo API로 발송
+    // 8. 발신자 프로필 로드
+    let senderName = '셀포 by 마스터인사이트'
+    let senderEmail = 'skykee91@gmail.com'
+    if (profileId) {
+      const profile = await prisma.senderProfile.findUnique({ where: { id: profileId } })
+      if (profile) {
+        senderName = profile.senderName
+        senderEmail = profile.senderEmail
+      }
+    } else {
+      // 기본 프로필 사용
+      const defaultProfile = await prisma.senderProfile.findFirst({ where: { isDefault: true } })
+      if (defaultProfile) {
+        senderName = defaultProfile.senderName
+        senderEmail = defaultProfile.senderEmail
+      }
+    }
+
+    // 9. Brevo API로 발송
     const result = await brevo.sendTransacEmail({
-      sender: { name: '셀포 by 마스터인사이트', email: 'skykee91@gmail.com' },
+      sender: { name: senderName, email: senderEmail },
       to: [{ email: business.email, name: business.name }],
       subject,
       htmlContent: body,

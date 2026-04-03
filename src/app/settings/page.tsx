@@ -49,17 +49,8 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* 발신자 정보 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">발신자 정보 (법률 필수)</h2>
-        <p className="text-sm text-gray-400 mb-4">이메일 하단에 자동으로 삽입되는 정보입니다. 코드에서 수정하세요.</p>
-        <div className="space-y-2 text-sm">
-          <p className="text-gray-300">회사명: <span className="text-gray-500">[회사명]</span></p>
-          <p className="text-gray-300">사업자등록번호: <span className="text-gray-500">[000-00-00000]</span></p>
-          <p className="text-gray-300">주소: <span className="text-gray-500">[회사 주소]</span></p>
-          <p className="text-gray-300">연락처: <span className="text-gray-500">[전화번호]</span></p>
-        </div>
-      </div>
+      {/* 발신자 프로필 관리 */}
+      <SenderProfiles />
 
       {/* 환경 변수 상태 */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
@@ -95,6 +86,157 @@ function EnvRow({ name, set }: { name: string; set: boolean }) {
     <div className="flex items-center justify-between py-1">
       <code className="text-gray-300">{name}</code>
       <span className={`text-xs ${set ? "text-green-400" : "text-red-400"}`}>{set ? "설정됨" : "미설정"}</span>
+    </div>
+  );
+}
+
+// ─── 발신자 프로필 관리 ───
+interface Profile {
+  id: string;
+  serviceName: string;
+  senderName: string;
+  senderEmail: string;
+  companyName: string;
+  representative: string | null;
+  address: string | null;
+  phone: string | null;
+  businessNumber: string | null;
+  isDefault: boolean;
+}
+
+function SenderProfiles() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    serviceName: "", senderName: "", senderEmail: "",
+    companyName: "", representative: "", address: "",
+    phone: "", businessNumber: "", isDefault: false,
+  });
+  const [msg, setMsg] = useState("");
+
+  const fetchProfiles = async () => {
+    const res = await fetch("/api/sender-profiles");
+    const data = await res.json();
+    setProfiles(data.profiles || []);
+  };
+
+  useEffect(() => { fetchProfiles(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/sender-profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    if (res.ok) {
+      setMsg("프로필 추가 완료!");
+      setForm({ serviceName: "", senderName: "", senderEmail: "", companyName: "", representative: "", address: "", phone: "", businessNumber: "", isDefault: false });
+      setShowForm(false);
+      fetchProfiles();
+    } else {
+      const data = await res.json();
+      setMsg(data.error || "추가 실패");
+    }
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  const handleDelete = async (id: string) => {
+    const res = await fetch(`/api/sender-profiles?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setMsg("삭제 완료");
+      fetchProfiles();
+    }
+    setTimeout(() => setMsg(""), 3000);
+  };
+
+  const setDefault = async (id: string) => {
+    await fetch("/api/sender-profiles", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, isDefault: true }),
+    });
+    fetchProfiles();
+  };
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">발신자 프로필</h2>
+          <p className="text-sm text-gray-400">서비스별 발신 이메일과 사업자 정보를 관리합니다</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)}
+          className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+          {showForm ? "취소" : "+ 새 프로필"}
+        </button>
+      </div>
+
+      {msg && <div className="mb-4 p-3 rounded bg-blue-900/30 border border-blue-800 text-blue-400 text-sm">{msg}</div>}
+
+      {/* 추가 폼 */}
+      {showForm && (
+        <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-800/50 rounded-lg space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <input value={form.serviceName} onChange={e => setForm({...form, serviceName: e.target.value})} required
+              placeholder="서비스명 (예: 셀포) *" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.senderEmail} onChange={e => setForm({...form, senderEmail: e.target.value})} required
+              placeholder="발신 이메일 *" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.senderName} onChange={e => setForm({...form, senderName: e.target.value})}
+              placeholder="발신자 표시명 (예: 셀포 by 마스터인사이트)" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})}
+              placeholder="사업자명 (예: (주)마스터인사이트)" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.representative} onChange={e => setForm({...form, representative: e.target.value})}
+              placeholder="대표자명" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.address} onChange={e => setForm({...form, address: e.target.value})}
+              placeholder="주소" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
+              placeholder="연락처" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+            <input value={form.businessNumber} onChange={e => setForm({...form, businessNumber: e.target.value})}
+              placeholder="사업자등록번호 (선택)" className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-gray-400">
+              <input type="checkbox" checked={form.isDefault} onChange={e => setForm({...form, isDefault: e.target.checked})}
+                className="rounded" />
+              기본 프로필로 설정
+            </label>
+            <button type="submit" className="px-6 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">추가</button>
+          </div>
+        </form>
+      )}
+
+      {/* 프로필 목록 */}
+      {profiles.length === 0 ? (
+        <p className="text-gray-500 text-center py-6">등록된 발신자 프로필이 없습니다. 위에서 추가하세요.</p>
+      ) : (
+        <div className="space-y-3">
+          {profiles.map(p => (
+            <div key={p.id} className={`p-4 rounded-lg border ${p.isDefault ? "border-blue-600 bg-blue-900/10" : "border-gray-800 bg-gray-800/30"}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-semibold">{p.serviceName}</span>
+                  {p.isDefault && <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">기본</span>}
+                </div>
+                <div className="flex gap-2">
+                  {!p.isDefault && (
+                    <button onClick={() => setDefault(p.id)} className="text-xs text-blue-400 hover:text-blue-300">기본으로</button>
+                  )}
+                  <button onClick={() => handleDelete(p.id)} className="text-xs text-red-400 hover:text-red-300">삭제</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-sm">
+                <p className="text-gray-400">발신: <span className="text-gray-300">{p.senderName}</span></p>
+                <p className="text-gray-400">이메일: <span className="text-gray-300">{p.senderEmail}</span></p>
+                <p className="text-gray-400">사업자: <span className="text-gray-300">{p.companyName || "-"}</span></p>
+                <p className="text-gray-400">대표: <span className="text-gray-300">{p.representative || "-"}</span></p>
+                <p className="text-gray-400">주소: <span className="text-gray-300">{p.address || "-"}</span></p>
+                <p className="text-gray-400">연락처: <span className="text-gray-300">{p.phone || "-"}</span></p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -185,3 +185,21 @@ model Deal {
 
   business Business @relation(fields: [businessId], references: [id])
 }
+
+// ──────────────────────────────────────
+// 9. 발신자 프로필 (서비스별 발신 정보)
+// ──────────────────────────────────────
+model SenderProfile {
+  id              String   @id @default(uuid())
+  serviceName     String   // 서비스명 (예: 셀포, 다른서비스)
+  senderName      String   // 발신자 표시명 (예: "셀포 by 마스터인사이트")
+  senderEmail     String   // 발신 이메일
+  companyName     String   // 사업자명 (예: (주)마스터인사이트)
+  representative  String?  // 대표자명
+  address         String?  // 주소
+  phone           String?  // 연락처
+  businessNumber  String?  // 사업자등록번호
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
