@@ -12,6 +12,7 @@ const menuItems = [
   { name: "템플릿", path: "/templates", icon: "📝" },
   { name: "팔로업", path: "/followup", icon: "🔄" },
   { name: "통계", path: "/stats", icon: "📈" },
+  { name: "인사이트", path: "/insights", icon: "💡" },
   { name: "핫 리드", path: "/leads", icon: "🔥" },
   { name: "ROI", path: "/roi", icon: "💰" },
   { name: "설정", path: "/settings", icon: "⚙️" },
