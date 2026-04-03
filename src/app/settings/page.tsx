@@ -107,6 +107,7 @@ interface Profile {
 function SenderProfiles() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     serviceName: "", senderName: "", senderEmail: "",
     companyName: "", representative: "", address: "",
@@ -122,21 +123,38 @@ function SenderProfiles() {
 
   useEffect(() => { fetchProfiles(); }, []);
 
+  const resetForm = () => {
+    setForm({ serviceName: "", senderName: "", senderEmail: "", companyName: "", representative: "", address: "", phone: "", businessNumber: "", isDefault: false });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (p: Profile) => {
+    setForm({
+      serviceName: p.serviceName, senderName: p.senderName, senderEmail: p.senderEmail,
+      companyName: p.companyName, representative: p.representative || "",
+      address: p.address || "", phone: p.phone || "",
+      businessNumber: p.businessNumber || "", isDefault: p.isDefault,
+    });
+    setEditingId(p.id);
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isEdit = !!editingId;
     const res = await fetch("/api/sender-profiles", {
-      method: "POST",
+      method: isEdit ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(isEdit ? { id: editingId, ...form } : form),
     });
     if (res.ok) {
-      setMsg("프로필 추가 완료!");
-      setForm({ serviceName: "", senderName: "", senderEmail: "", companyName: "", representative: "", address: "", phone: "", businessNumber: "", isDefault: false });
-      setShowForm(false);
+      setMsg(isEdit ? "수정 완료!" : "프로필 추가 완료!");
+      resetForm();
       fetchProfiles();
     } else {
       const data = await res.json();
-      setMsg(data.error || "추가 실패");
+      setMsg(data.error || "실패");
     }
     setTimeout(() => setMsg(""), 3000);
   };
@@ -166,7 +184,7 @@ function SenderProfiles() {
           <h2 className="text-lg font-semibold text-white">발신자 프로필</h2>
           <p className="text-sm text-gray-400">서비스별 발신 이메일과 사업자 정보를 관리합니다</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
           {showForm ? "취소" : "+ 새 프로필"}
         </button>
@@ -201,7 +219,9 @@ function SenderProfiles() {
                 className="rounded" />
               기본 프로필로 설정
             </label>
-            <button type="submit" className="px-6 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">추가</button>
+            <button type="submit" className="px-6 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+              {editingId ? "수정 저장" : "추가"}
+            </button>
           </div>
         </form>
       )}
@@ -222,6 +242,7 @@ function SenderProfiles() {
                   {!p.isDefault && (
                     <button onClick={() => setDefault(p.id)} className="text-xs text-blue-400 hover:text-blue-300">기본으로</button>
                   )}
+                  <button onClick={() => startEdit(p)} className="text-xs text-yellow-400 hover:text-yellow-300">수정</button>
                   <button onClick={() => handleDelete(p.id)} className="text-xs text-red-400 hover:text-red-300">삭제</button>
                 </div>
               </div>
