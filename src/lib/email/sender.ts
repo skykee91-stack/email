@@ -55,7 +55,7 @@ export async function sendEmail({ businessId, templateId, step }: SendEmailParam
   try {
     // 8. Brevo API로 발송
     const result = await brevo.sendTransacEmail({
-      sender: { name: 'sellpo', email: 'skykee91@gmail.com' },
+      sender: { name: '셀포 by 마스터인사이트', email: 'skykee91@gmail.com' },
       to: [{ email: business.email, name: business.name }],
       subject,
       htmlContent: body,

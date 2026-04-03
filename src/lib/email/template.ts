@@ -21,6 +21,7 @@ export function renderTemplate(template: Template, business: Business) {
     '{업종}': business.category || '업체',
     '{지역}': business.region || '',
     '{수신거부링크}': unsubscribeUrl,
+    '{수신거부URL}': unsubscribeUrl,
   }
 
   let subject = template.subject
@@ -52,8 +53,8 @@ function appendLegalFooter(html: string, unsubscribeUrl: string): string {
     <div style="margin-top:30px; padding-top:15px; border-top:1px solid #ddd;
                 font-size:11px; color:#888; line-height:1.6;">
       <p>본 메일은 정보통신망법에 의거하여 발송되었습니다.</p>
-      <p>발신: [회사명] | 사업자등록번호: [000-00-00000]</p>
-      <p>주소: [회사 주소] | 연락처: [전화번호]</p>
+      <p>발신: (주)마스터인사이트 | 대표: 박세울, 차기현</p>
+      <p>경기도 안양시 엘에스로142 704호 | 010-9755-6243</p>
       <p><a href="${unsubscribeUrl}" style="color:#888;">수신거부</a>를 원하시면 클릭해주세요.</p>
     </div>
   `

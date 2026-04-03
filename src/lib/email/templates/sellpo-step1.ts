@@ -134,7 +134,19 @@ export const SELLPO_STEP1_HTML = `
             <td style="padding:24px 40px; background:#F8F9FA; border-top:1px solid #E5E8EB;">
               <p style="color:#8B95A1; font-size:12px; line-height:1.8; margin:0; text-align:center;">
                 궁금하신 점이 있으시면 이 메일에 바로 답장해주세요!<br>
-                빠르게 안내해드리겠습니다. 😊
+                빠르게 안내해드리겠습니다.
+              </p>
+            </td>
+          </tr>
+
+          <!-- 법적 필수 정보 -->
+          <tr>
+            <td style="padding:16px 40px 24px; background:#F2F4F6;">
+              <p style="color:#ADB5BD; font-size:11px; line-height:1.8; margin:0; text-align:center;">
+                (주)마스터인사이트 | 대표: 박세울, 차기현<br>
+                경기도 안양시 엘에스로142 704호 | 010-9755-6243<br><br>
+                본 메일은 정보통신망법에 의거한 광고 메일입니다.<br>
+                수신을 원치 않으시면 <a href="{수신거부URL}" style="color:#3182F6; text-decoration:underline;">수신거부</a>를 눌러주세요.
               </p>
             </td>
           </tr>
