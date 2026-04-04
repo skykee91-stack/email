@@ -13,6 +13,7 @@ export default function TemplatesPage() {
   const [form, setForm] = useState({ name: "", step: 1, subject: "", htmlBody: "", category: "", abVariant: "" });
   const [editId, setEditId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   const fetchTemplates = async () => {
     const res = await fetch("/api/templates");
@@ -82,8 +83,32 @@ export default function TemplatesPage() {
     return acc;
   }, {} as Record<string, Template[]>);
 
+  const handlePreview = (t: Template) => {
+    // 변수를 샘플 데이터로 치환
+    let html = t.htmlBody
+      .replaceAll("{사업자명}", "테스트미용실")
+      .replaceAll("{업종}", "미용실")
+      .replaceAll("{지역}", "서울 강남구")
+      .replaceAll("{수신거부URL}", "#")
+      .replaceAll("{수신거부링크}", "#");
+    setPreviewHtml(html);
+  };
+
   return (
     <div>
+      {/* 미리보기 모달 */}
+      {previewHtml && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPreviewHtml(null)}>
+          <div className="bg-white rounded-lg max-w-[650px] w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b bg-gray-100">
+              <span className="text-gray-700 font-semibold">이메일 미리보기</span>
+              <button onClick={() => setPreviewHtml(null)} className="text-gray-500 hover:text-gray-800 text-xl">&times;</button>
+            </div>
+            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">이메일 템플릿</h1>
@@ -201,6 +226,7 @@ export default function TemplatesPage() {
                       <p className="text-sm text-gray-400 mt-1">제목: {t.subject}</p>
                     </div>
                     <div className="flex gap-2">
+                      <button onClick={() => handlePreview(t)} className="px-3 py-1 text-xs bg-blue-900/50 text-blue-400 rounded hover:bg-blue-900">미리보기</button>
                       <button onClick={() => handleDuplicate(t)} className="px-3 py-1 text-xs bg-gray-800 text-gray-300 rounded hover:bg-gray-700">복사</button>
                       <button onClick={() => handleEdit(t)} className="px-3 py-1 text-xs bg-gray-800 text-gray-300 rounded hover:bg-gray-700">수정</button>
                       <button onClick={() => handleDelete(t.id)} className="px-3 py-1 text-xs bg-red-900/50 text-red-400 rounded hover:bg-red-900">삭제</button>
