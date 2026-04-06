@@ -8,10 +8,12 @@ export async function POST(req: NextRequest) {
 
     const result = await sendBulkEmails({
       templateId: body.templateId,
+      templateIdB: body.templateIdB || undefined,  // A/B 테스트용 B 변형
       step: body.step || 1,
       filters: body.filters || {},
       maxCount: body.maxCount || 100,
       dryRun: body.dryRun || false,
+      profileId: body.profileId || undefined,
     })
 
     return NextResponse.json(result)

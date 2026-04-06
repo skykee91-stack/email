@@ -1,7 +1,6 @@
 // 셀포 1차 제안서 이메일 HTML 템플릿
-// 셀포 브랜드 컬러: #3182F6 (블루), #191F28 (텍스트), #F2F4F6 (배경)
 
-export const SELLPO_STEP1_SUBJECT = '{사업자명}님, 블로그 마케팅 자동화로 매출을 올려보세요'
+export const SELLPO_STEP1_SUBJECT = '{사업자명}님, 블로그 마케팅 직접 하시느라 힘드시죠?'
 
 export const SELLPO_STEP1_HTML = `
 <!DOCTYPE html>
@@ -14,137 +13,91 @@ export const SELLPO_STEP1_HTML = `
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F2F4F6; padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
 
-          <!-- 헤더 (셀포 블루) -->
+          <!-- 로고 헤더 -->
           <tr>
-            <td style="background: linear-gradient(135deg, #3182F6 0%, #1B64DA 100%); padding:32px 40px; text-align:center;">
-              <h1 style="color:#ffffff; font-size:24px; font-weight:800; margin:0; letter-spacing:-0.5px;">셀포 SELLPO</h1>
-              <p style="color:rgba(255,255,255,0.85); font-size:14px; margin:8px 0 0; font-weight:500;">AI 블로그 마케팅 자동화 플랫폼</p>
+            <td style="background:linear-gradient(135deg, #3182F6 0%, #1B64DA 100%); padding:16px 40px; text-align:center;">
+              <img src="https://img.mailinblue.com/10939913/images/content_library/original/69d30bc45588fb598df81a5a.png" alt="sellpo" width="320" style="display:inline-block;" />
             </td>
           </tr>
 
           <!-- 인사말 -->
           <tr>
-            <td style="padding:40px 40px 0;">
-              <h2 style="color:#191F28; font-size:22px; font-weight:700; margin:0 0 8px; line-height:1.4;">
-                안녕하세요, <span style="color:#3182F6;">{사업자명}</span>님!
+            <td style="padding:36px 40px 20px;">
+              <h2 style="color:#191F28; font-size:20px; font-weight:700; margin:0 0 16px; line-height:1.4;">
+                <span style="color:#3182F6;">{사업자명}</span>님, 안녕하세요!
               </h2>
-              <p style="color:#4E5968; font-size:15px; line-height:1.7; margin:0;">
-                {지역}에서 {업종}을 운영하고 계신 것으로 알고 있습니다.<br>
-                혹시 블로그 마케팅, 이런 고민 있으신가요?
+              <p style="color:#4E5968; font-size:15px; line-height:1.8; margin:0;">
+                {지역}에서 {업종} 운영하시면서<br>
+                블로그 마케팅 고민되실 것 같아서 연락드려요.
               </p>
             </td>
           </tr>
 
-          <!-- 고민 포인트 -->
+          <!-- 핵심 메시지 박스 -->
           <tr>
-            <td style="padding:24px 40px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F8F9FA; border-radius:12px; padding:20px;">
-                <tr><td style="padding:8px 20px;">
-                  <p style="color:#191F28; font-size:14px; margin:0; line-height:2;">
-                    😤 대행사 맡기면 비용만 나가고 효과는 없고...<br>
-                    😫 직접 블로그 쓰자니 시간이 없고...<br>
-                    😰 상위노출이 안 되니 손님이 안 오고...
-                  </p>
+            <td style="padding:0 40px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #EBF4FF 0%, #F0F7FF 100%); border-radius:16px;">
+                <tr><td style="padding:24px; text-align:center;">
+                  <p style="color:#3182F6; font-size:13px; font-weight:600; margin:0 0 8px; letter-spacing:1px;">WHAT WE DO</p>
+                  <p style="color:#191F28; font-size:18px; font-weight:800; margin:0 0 8px; line-height:1.4;">사진 한 장이면<br>블로그 마케팅 끝</p>
+                  <p style="color:#4E5968; font-size:13px; margin:0;">AI 원고 작성 → 자동 발행 → 상위노출 부스팅</p>
                 </td></tr>
               </table>
             </td>
           </tr>
 
-          <!-- 셀포 소개 -->
-          <tr>
-            <td style="padding:0 40px;">
-              <h3 style="color:#191F28; font-size:18px; font-weight:700; margin:0 0 16px;">
-                사장님은 사진만, 나머지는 셀포가 ✨
-              </h3>
-            </td>
-          </tr>
-
-          <!-- 기능 카드들 -->
-          <tr>
-            <td style="padding:0 40px 16px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="50%" style="padding-right:8px;">
-                    <div style="background:#EBF4FF; border-radius:12px; padding:20px; text-align:center;">
-                      <p style="font-size:28px; margin:0 0 8px;">⚡</p>
-                      <p style="color:#191F28; font-size:14px; font-weight:700; margin:0;">AI 자동 원고</p>
-                      <p style="color:#4E5968; font-size:12px; margin:4px 0 0;">10초만에 전문 원고 완성</p>
-                    </div>
-                  </td>
-                  <td width="50%" style="padding-left:8px;">
-                    <div style="background:#EBF4FF; border-radius:12px; padding:20px; text-align:center;">
-                      <p style="font-size:28px; margin:0 0 8px;">📈</p>
-                      <p style="color:#191F28; font-size:14px; font-weight:700; margin:0;">상위노출 부스팅</p>
-                      <p style="color:#4E5968; font-size:12px; margin:4px 0 0;">성공률 92%</p>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          <!-- 숫자 강조 -->
           <tr>
             <td style="padding:0 40px 24px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="50%" style="padding-right:8px;">
-                    <div style="background:#EBF4FF; border-radius:12px; padding:20px; text-align:center;">
-                      <p style="font-size:28px; margin:0 0 8px;">🤖</p>
-                      <p style="color:#191F28; font-size:14px; font-weight:700; margin:0;">완전 자동화</p>
-                      <p style="color:#4E5968; font-size:12px; margin:4px 0 0;">사진만 올리면 자동 발행</p>
-                    </div>
+                  <td width="33%" style="text-align:center; padding:16px 8px; background:#F8F9FA; border-radius:12px 0 0 12px;">
+                    <p style="color:#3182F6; font-size:24px; font-weight:800; margin:0;">92%</p>
+                    <p style="color:#8B95A1; font-size:11px; margin:4px 0 0;">상위노출 성공률</p>
                   </td>
-                  <td width="50%" style="padding-left:8px;">
-                    <div style="background:#EBF4FF; border-radius:12px; padding:20px; text-align:center;">
-                      <p style="font-size:28px; margin:0 0 8px;">💰</p>
-                      <p style="color:#191F28; font-size:14px; font-weight:700; margin:0;">대행사 비용 0원</p>
-                      <p style="color:#4E5968; font-size:12px; margin:4px 0 0;">월 3만원부터</p>
-                    </div>
+                  <td width="33%" style="text-align:center; padding:16px 8px; background:#F8F9FA; border-left:2px solid #fff; border-right:2px solid #fff;">
+                    <p style="color:#3182F6; font-size:24px; font-weight:800; margin:0;">10초</p>
+                    <p style="color:#8B95A1; font-size:11px; margin:4px 0 0;">원고 작성 시간</p>
+                  </td>
+                  <td width="33%" style="text-align:center; padding:16px 8px; background:#F8F9FA; border-radius:0 12px 12px 0;">
+                    <p style="color:#3182F6; font-size:24px; font-weight:800; margin:0;">3만원</p>
+                    <p style="color:#8B95A1; font-size:11px; margin:4px 0 0;">월 시작 가격</p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
 
-          <!-- 가격 -->
+          <!-- 본문 -->
           <tr>
-            <td style="padding:0 40px 24px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8F9FA; border-radius:12px;">
-                <tr><td style="padding:20px; text-align:center;">
-                  <p style="color:#4E5968; font-size:13px; margin:0 0 4px;">스타터 플랜</p>
-                  <p style="color:#191F28; font-size:28px; font-weight:800; margin:0;">월 30,000원</p>
-                  <p style="color:#4E5968; font-size:13px; margin:4px 0 0;">부터 시작 · 300크레딧 제공</p>
-                </td></tr>
-              </table>
+            <td style="padding:0 40px 28px;">
+              <p style="color:#4E5968; font-size:15px; line-height:1.8; margin:0;">
+                관심 있으시면 아래 버튼으로 확인해보시거나<br>
+                편하게 답장 주세요!
+              </p>
             </td>
           </tr>
 
-          <!-- CTA 버튼 -->
+          <!-- CTA 버튼 2개 -->
           <tr>
-            <td style="padding:0 40px 32px; text-align:center;">
-              <a href="https://sellpo.kr" style="display:inline-block; background:#3182F6; color:#ffffff; font-size:16px; font-weight:700; text-decoration:none; padding:16px 48px; border-radius:32px; box-shadow:0 8px 16px -4px rgba(49,130,246,0.3);">
-                셀포 무료로 시작하기 →
+            <td style="padding:0 40px 36px; text-align:center;">
+              <a href="https://sellpo.kr" style="display:inline-block; background:linear-gradient(135deg, #3182F6 0%, #1B64DA 100%); color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 8px 20px -4px rgba(49,130,246,0.35); margin-right:8px;">
+                셀포 알아보기 →
               </a>
-            </td>
-          </tr>
-
-          <!-- 하단 -->
-          <tr>
-            <td style="padding:24px 40px; background:#F8F9FA; border-top:1px solid #E5E8EB;">
-              <p style="color:#8B95A1; font-size:12px; line-height:1.8; margin:0; text-align:center;">
-                궁금하신 점이 있으시면 이 메일에 바로 답장해주세요!<br>
-                빠르게 안내해드리겠습니다.
-              </p>
+              <a href="http://pf.kakao.com/_xbxnlMX" style="display:inline-block; background:#FEE500; color:#191F28; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                카카오톡 상담 →
+              </a>
             </td>
           </tr>
 
           <!-- 법적 필수 정보 -->
           <tr>
-            <td style="padding:16px 40px 24px; background:#F2F4F6;">
+            <td style="padding:20px 40px; background:#F2F4F6;">
               <p style="color:#ADB5BD; font-size:11px; line-height:1.8; margin:0; text-align:center;">
                 (주)마스터인사이트 | 대표: 박세울, 차기현<br>
-                경기도 안양시 엘에스로142 704호 | 010-9755-6243<br><br>
+                경기도 안양시 엘에스로142 704호 | 010-9755-6243<br>
                 본 메일은 정보통신망법에 의거한 광고 메일입니다.<br>
                 수신을 원치 않으시면 <a href="{수신거부URL}" style="color:#3182F6; text-decoration:underline;">수신거부</a>를 눌러주세요.
               </p>

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const menuItems = [
   { name: "대시보드", path: "/", icon: "📊" },
   { name: "수집 관리", path: "/scrape", icon: "🔍" },
+  { name: "수집 이력", path: "/scrape-history", icon: "📋" },
   { name: "업체 목록", path: "/businesses", icon: "🏢" },
   { name: "이메일 발송", path: "/email", icon: "📧" },
   { name: "템플릿", path: "/templates", icon: "📝" },

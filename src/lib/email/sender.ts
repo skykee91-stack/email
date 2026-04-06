@@ -55,8 +55,8 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
 
   try {
     // 8. 발신자 프로필 로드
-    let senderName = '셀포 by 마스터인사이트'
-    let senderEmail = 'skykee91@gmail.com'
+    let senderName = '셀포'
+    let senderEmail = 'info@sellpo.kr'
     if (profileId) {
       const profile = await prisma.senderProfile.findUnique({ where: { id: profileId } })
       if (profile) {
@@ -72,9 +72,11 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
       }
     }
 
-    // 9. Brevo API로 발송
+    // 9. Brevo API로 발송 (Reply-To는 Gmail로 설정)
+    const replyToEmail = process.env.REPLY_TO_EMAIL || 'skykee91@gmail.com'
     const result = await brevo.sendTransacEmail({
       sender: { name: senderName, email: senderEmail },
+      replyTo: { name: senderName, email: replyToEmail },
       to: [{ email: business.email, name: business.name }],
       subject,
       htmlContent: body,
@@ -101,9 +103,10 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
   }
 }
 
-// 대량 발송 (필터 기반)
+// 대량 발송 (필터 기반, A/B 테스트 지원)
 export async function sendBulkEmails(params: {
   templateId: string
+  templateIdB?: string  // A/B 테스트: B 변형 템플릿 ID (없으면 일반 발송)
   step: number
   filters: {
     category?: string
@@ -111,6 +114,7 @@ export async function sendBulkEmails(params: {
   }
   maxCount: number
   dryRun?: boolean
+  profileId?: string
 }) {
   const where: Record<string, unknown> = {
     status: 'active',
@@ -130,10 +134,28 @@ export async function sendBulkEmails(params: {
     orderBy: { createdAt: 'asc' },
   })
 
+  // A/B 테스트: 대상을 랜덤으로 절반씩 나누기
+  const isABTest = !!params.templateIdB
+  let groupA = businesses
+  let groupB: typeof businesses = []
+
+  if (isABTest) {
+    // 랜덤 셔플 후 절반 나누기
+    const shuffled = [...businesses].sort(() => Math.random() - 0.5)
+    const half = Math.ceil(shuffled.length / 2)
+    groupA = shuffled.slice(0, half)
+    groupB = shuffled.slice(half)
+  }
+
   if (params.dryRun) {
     return {
       dryRun: true,
       totalTargets: businesses.length,
+      ...(isABTest ? {
+        abTest: true,
+        groupA: { count: groupA.length, templateId: params.templateId },
+        groupB: { count: groupB.length, templateId: params.templateIdB },
+      } : {}),
       businesses: businesses.map((b) => ({
         id: b.id,
         name: b.name,
@@ -144,19 +166,47 @@ export async function sendBulkEmails(params: {
     }
   }
 
-  const results = { sent: 0, skipped: 0, errors: [] as string[] }
+  const results = {
+    sent: 0,
+    skipped: 0,
+    errors: [] as string[],
+    ...(isABTest ? { abTest: true, groupA: { sent: 0, skipped: 0 }, groupB: { sent: 0, skipped: 0 } } : {}),
+  }
 
-  for (const biz of businesses) {
+  // 그룹 A 발송
+  for (const biz of groupA) {
     const result = await sendEmail({
       businessId: biz.id,
       templateId: params.templateId,
       step: params.step,
+      profileId: params.profileId,
     })
 
     if (result.success) {
       results.sent++
+      if (isABTest) results.groupA!.sent++
     } else {
       results.skipped++
+      if (isABTest) results.groupA!.skipped++
+      if (result.error) results.errors.push(`${biz.name}: ${result.error}`)
+    }
+  }
+
+  // 그룹 B 발송 (A/B 테스트일 때만)
+  for (const biz of groupB) {
+    const result = await sendEmail({
+      businessId: biz.id,
+      templateId: params.templateIdB!,
+      step: params.step,
+      profileId: params.profileId,
+    })
+
+    if (result.success) {
+      results.sent++
+      if (isABTest) results.groupB!.sent++
+    } else {
+      results.skipped++
+      if (isABTest) results.groupB!.skipped++
       if (result.error) results.errors.push(`${biz.name}: ${result.error}`)
     }
   }

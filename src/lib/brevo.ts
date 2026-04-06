@@ -15,6 +15,7 @@ export const brevo = {
   // 이메일 발송
   async sendTransacEmail(params: {
     sender: { name: string; email: string }
+    replyTo?: { name: string; email: string }
     to: { email: string; name: string }[]
     subject: string
     htmlContent: string

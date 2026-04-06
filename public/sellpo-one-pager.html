@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>셀포 - AI 블로그 마케팅 자동화</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F2F4F6;
+      color: #191F28;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .header {
+      background: linear-gradient(135deg, #3182F6 0%, #1B64DA 100%);
+      padding: 36px 40px;
+      color: #ffffff;
+      text-align: center;
+    }
+    .header h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .header p { font-size: 14px; opacity: 0.85; }
+    .content { padding: 36px 40px; }
+    .section { margin-bottom: 28px; }
+    .section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #3182F6;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #EBF4FF;
+    }
+    .problem-list p {
+      font-size: 14px;
+      color: #4E5968;
+      line-height: 1.8;
+      padding: 4px 0;
+    }
+    .how-it-works {
+      display: flex;
+      gap: 12px;
+    }
+    .step-box {
+      flex: 1;
+      background: #F8F9FA;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .step-box .emoji { font-size: 24px; margin-bottom: 6px; }
+    .step-box h3 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .step-box p { font-size: 12px; color: #4E5968; }
+    .stats-row {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #EBF4FF;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-box .number {
+      font-size: 24px;
+      font-weight: 800;
+      color: #3182F6;
+    }
+    .stat-box .label {
+      font-size: 12px;
+      color: #4E5968;
+      margin-top: 4px;
+    }
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .compare-table th {
+      padding: 10px;
+      background: #F8F9FA;
+      color: #8B95A1;
+      font-weight: 600;
+      border-bottom: 2px solid #E5E8EB;
+    }
+    .compare-table th:last-child {
+      background: #EBF4FF;
+      color: #3182F6;
+    }
+    .compare-table td {
+      padding: 10px;
+      border-bottom: 1px solid #F2F4F6;
+      text-align: center;
+    }
+    .compare-table td:first-child { text-align: left; color: #191F28; }
+    .compare-table td:last-child { color: #3182F6; font-weight: 700; }
+    .pricing-box {
+      background: linear-gradient(135deg, #EBF4FF 0%, #F0F7FF 100%);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    .pricing-box .price {
+      font-size: 28px;
+      font-weight: 800;
+      color: #191F28;
+    }
+    .pricing-box .price span { font-size: 14px; font-weight: 500; color: #4E5968; }
+    .pricing-box .note { font-size: 13px; color: #4E5968; margin-top: 6px; }
+    .cta-box {
+      text-align: center;
+      margin-top: 28px;
+    }
+    .cta-box a {
+      display: inline-block;
+      background: #3182F6;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 14px 40px;
+      border-radius: 28px;
+    }
+    .cta-box p {
+      font-size: 12px;
+      color: #8B95A1;
+      margin-top: 8px;
+    }
+    .footer {
+      padding: 20px 40px;
+      background: #F8F9FA;
+      text-align: center;
+      font-size: 11px;
+      color: #8B95A1;
+      line-height: 1.8;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>셀포 SELLPO</h1>
+      <p>사장님은 사진만, 나머지는 셀포가</p>
+    </div>
+
+    <div class="content">
+      <!-- 문제 -->
+      <div class="section">
+        <h2>이런 고민 있으시죠?</h2>
+        <div class="problem-list">
+          <p>😤 대행사 맡기면 비용만 나가고 효과는 모르겠고</p>
+          <p>😫 직접 블로그 쓰자니 시간이 없고</p>
+          <p>😰 상위노출이 안 되니 신규 고객이 안 오고</p>
+        </div>
+      </div>
+
+      <!-- 해결방법 -->
+      <div class="section">
+        <h2>셀포는 이렇게 해결합니다</h2>
+        <div class="how-it-works">
+          <div class="step-box">
+            <div class="emoji">📸</div>
+            <h3>사진 올리기</h3>
+            <p>가게 사진만 올리면 끝</p>
+          </div>
+          <div class="step-box">
+            <div class="emoji">🤖</div>
+            <h3>AI가 글 작성</h3>
+            <p>10초만에 전문 원고</p>
+          </div>
+          <div class="step-box">
+            <div class="emoji">📈</div>
+            <h3>자동 상위노출</h3>
+            <p>부스팅까지 자동</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 성과 숫자 -->
+      <div class="section">
+        <h2>실제 성과</h2>
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="number">92%</div>
+            <div class="label">상위노출 성공률</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">10초</div>
+            <div class="label">원고 작성 시간</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">1/10</div>
+            <div class="label">대행사 대비 비용</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 비교 -->
+      <div class="section">
+        <h2>대행사 vs 셀포</h2>
+        <table class="compare-table">
+          <tr><th></th><th>대행사</th><th>셀포</th></tr>
+          <tr><td>월 비용</td><td>30~100만원</td><td>3만원~</td></tr>
+          <tr><td>원고 품질</td><td>복붙 원고</td><td>AI 맞춤 원고</td></tr>
+          <tr><td>상위노출</td><td>보장 안됨</td><td>92% 성공</td></tr>
+          <tr><td>블로그 소유</td><td>대행사 블로그</td><td>내 블로그</td></tr>
+          <tr><td>계약 기간</td><td>6개월~1년</td><td>월 단위 자유</td></tr>
+        </table>
+      </div>
+
+      <!-- 가격 -->
+      <div class="section">
+        <h2>요금</h2>
+        <div class="pricing-box">
+          <div class="price">월 30,000원 <span>부터</span></div>
+          <div class="note">300크레딧 제공 · 가입 시 무료 체험 크레딧 지급</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-box">
+        <a href="https://sellpo.kr">무료로 시작하기 →</a>
+        <p>문의: 010-9755-6243 · 답장으로도 상담 가능</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      (주)마스터인사이트 | 대표: 박세울, 차기현<br>
+      경기도 안양시 엘에스로142 704호<br>
+      © 2026 Selpo (Master Insight). All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

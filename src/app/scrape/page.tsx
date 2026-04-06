@@ -28,6 +28,16 @@ export default function ScrapePage() {
 
   // 결과 메시지
   const [result, setResult] = useState<any>(null);
+  const [scrapeMode, setScrapeMode] = useState<"local" | "remote">("local");
+  const [scraperOnline, setScraperOnline] = useState(false);
+
+  // 초기 모드 확인
+  useEffect(() => {
+    fetch("/api/scrape/start").then(r => r.json()).then(d => {
+      setScrapeMode(d.mode || "local");
+      setScraperOnline(d.scraperOnline || false);
+    }).catch(() => {});
+  }, []);
 
   // 수집 상태 폴링
   useEffect(() => {
@@ -126,6 +136,21 @@ export default function ScrapePage() {
           {result.message || result.error}
         </div>
       )}
+
+      {/* 연결 상태 표시 */}
+      <div className="mb-4 flex items-center gap-2">
+        {scrapeMode === "remote" ? (
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${scraperOnline ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+            <span className={`w-2 h-2 rounded-full ${scraperOnline ? "bg-green-400" : "bg-red-400"}`}></span>
+            {scraperOnline ? "원격 스크래퍼 연결됨" : "원격 스크래퍼 꺼져있음"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400">
+            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+            로컬 모드
+          </span>
+        )}
+      </div>
 
       {/* 자동 수집 */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">

@@ -1,10 +1,15 @@
 // 스크래핑 시작 API
 // POST /api/scrape/start → 스크래핑 작업 시작
-// 실제 스크래핑은 Python 스크래퍼를 subprocess로 실행
+// 모드 1: 로컬 (Python subprocess) - SCRAPER_PATH 설정 시
+// 모드 2: 원격 API (SCRAPER_API_URL 설정 시) - Vercel에서도 사용 가능
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { exec } from 'child_process'
+import fs from 'fs'
+import path from 'path'
+
+const SCRAPER_API_URL = process.env.SCRAPER_API_URL // 예: http://localhost:8000
 
 // 실행 중인 작업 관리
 let currentJob: {
@@ -15,6 +20,7 @@ let currentJob: {
   target: number
   category: string
   region: string
+  mode: 'local' | 'remote'
 } | null = null
 
 export async function POST(req: NextRequest) {
@@ -47,70 +53,53 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // 원격 API 모드 (Vercel에서도 사용 가능)
+    if (SCRAPER_API_URL) {
+      return await startRemoteScrape(job.id, searchTerm, region, target)
+    }
+
     // Python 스크래퍼 실행
     const scraperPath = process.env.SCRAPER_PATH || 'C:/Users/a/naver_place_scraper'
-    const regions = region
-      ? `["${region}"]`
-      : '["서울 강남구","서울 서초구","서울 송파구","서울 마포구","서울 영등포구","서울 강동구","서울 관악구","서울 강서구","서울 성동구","서울 종로구"]'
+    // 시/도 이름만 입력하면 자동으로 구 단위로 분배
+    const CITY_TO_DISTRICTS: Record<string, string[]> = {
+      '서울': ['서울 강남구','서울 서초구','서울 송파구','서울 마포구','서울 영등포구','서울 강동구','서울 관악구','서울 강서구','서울 성동구','서울 종로구','서울 중구','서울 용산구','서울 광진구','서울 동대문구','서울 중랑구','서울 성북구','서울 강북구','서울 도봉구','서울 노원구','서울 은평구','서울 서대문구','서울 구로구','서울 금천구','서울 동작구','서울 양천구'],
+      '부산': ['부산 해운대구','부산 수영구','부산 남구','부산 동래구','부산 부산진구','부산 사하구','부산 북구','부산 사상구','부산 연제구','부산 금정구'],
+      '인천': ['인천 남동구','인천 부평구','인천 서구','인천 연수구','인천 미추홀구','인천 계양구','인천 중구','인천 동구'],
+      '대구': ['대구 수성구','대구 달서구','대구 북구','대구 중구','대구 동구','대구 서구','대구 남구'],
+      '대전': ['대전 유성구','대전 서구','대전 중구','대전 동구','대전 대덕구'],
+      '광주': ['광주 북구','광주 서구','광주 남구','광주 광산구','광주 동구'],
+      '수원': ['수원 영통구','수원 권선구','수원 장안구','수원 팔달구'],
+      '성남': ['성남 분당구','성남 수정구','성남 중원구'],
+    }
+    let regions: string
+    if (!region) {
+      regions = JSON.stringify(CITY_TO_DISTRICTS['서울'])
+    } else if (CITY_TO_DISTRICTS[region]) {
+      regions = JSON.stringify(CITY_TO_DISTRICTS[region])
+    } else {
+      regions = `["${region}"]`
+    }
 
-    const pythonScript = `
-import asyncio, json, random, sys
-sys.path.insert(0, '${scraperPath.replace(/\\/g, '/')}')
-from scraper.browser import create_browser
-from scraper.search import navigate_to_search, collect_all_entries, get_search_frame
-from scraper.detail import click_and_extract
-from config import DEFAULT_DELAY_MIN, DEFAULT_DELAY_MAX, LONG_PAUSE_INTERVAL, LONG_PAUSE_MIN, LONG_PAUSE_MAX
-import logging
-logging.basicConfig(level=logging.WARNING)
+    // Python 스크립트를 파일로 저장 후 실행 (한글/따옴표 깨짐 방지)
+    const scriptPath = path.join(scraperPath, '_web_scrape_task.py')
+    // 1) Python으로 설정 파일 생성 (한글 깨짐 방지 - Python이 직접 한글 처리)
+    const configPath = path.join(scraperPath, '_web_scrape_config.json').replace(/\\/g, '/')
+    const runnerPath = path.join(scraperPath, 'web_scrape_runner.py').replace(/\\/g, '/')
+    const makeConfigScript = path.join(scraperPath, '_make_config.py').replace(/\\/g, '/')
 
-async def scrape():
-    results = []
-    seen = set()
-    regions = ${regions}
-    category = "${searchTerm}"
-    target = ${target}
-    per_region = max(30, (target * 3) // len(regions) + 10)
+    // _make_config.py는 고정된 ASCII 스크립트, sys.argv로 값을 받음
+    // region에 공백이 있을 수 있으므로 구분자로 ||| 사용
+    const regionArg = region || '__DEFAULT__'
+    const configArgs = [searchTerm, regionArg, String(target)].join('|||')
 
-    async with create_browser(headed=False) as (browser, context, page):
-        for ri, region in enumerate(regions):
-            if len(results) >= target: break
-            try:
-                sf = await navigate_to_search(page, region, category)
-                entries = await collect_all_entries(page, sf, per_region)
-                if not entries: continue
-                sf = await get_search_frame(page)
-                for idx, entry in enumerate(entries):
-                    if len(results) >= target: break
-                    if entry['name'] in seen: continue
-                    biz = await click_and_extract(page, sf, entry, category, context=context, search_region=region)
-                    if biz:
-                        seen.add(biz.name)
-                        if biz.email:
-                            results.append({
-                                'name': biz.name, 'phone': biz.phone, 'email': biz.email,
-                                'address': biz.address, 'category': category, 'region': region,
-                                'naverId': biz.naver_id, 'blogUrl': biz.blog_url,
-                                'homepageUrl': biz.homepage_url, 'placeId': biz.place_id,
-                            })
-                            print(json.dumps({'found': len(results), 'name': biz.name, 'email': biz.email}), flush=True)
-                    await asyncio.sleep(random.uniform(DEFAULT_DELAY_MIN, DEFAULT_DELAY_MAX))
-                    if (idx+1) % LONG_PAUSE_INTERVAL == 0:
-                        await asyncio.sleep(random.uniform(LONG_PAUSE_MIN, LONG_PAUSE_MAX))
-                    try: sf = await get_search_frame(page)
-                    except:
-                        sf = await navigate_to_search(page, region, category)
-                        sf = await get_search_frame(page)
-            except: pass
+    // 환경변수로 전달 (환경변수는 유니코드 지원)
+    // 한글을 hex로 인코딩해서 환경변수로 전달 (Windows 한글 깨짐 방지)
+    const configHex = Buffer.from(JSON.stringify({ category: searchTerm, region: region || '', target }), 'utf-8').toString('hex')
 
-    with open('${scraperPath.replace(/\\/g, '/')}/web_scrape_result.json', 'w', encoding='utf-8') as f:
-        json.dump({'businesses': results}, f, ensure_ascii=False)
-    print(json.dumps({'done': True, 'total': len(results)}), flush=True)
-
-asyncio.run(scrape())
-`
-
-    const child = exec(`python -u -c "${pythonScript.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`, {
+    const child = exec(`python -u "${runnerPath}"`, {
       maxBuffer: 10 * 1024 * 1024,
+      cwd: scraperPath,
+      env: { ...process.env, SCRAPE_CONFIG_HEX: configHex },
     })
 
     currentJob = {
@@ -121,7 +110,12 @@ asyncio.run(scrape())
       target,
       category: searchTerm,
       region: region || '전국',
+      mode: 'local',
     }
+
+    child.stderr?.on('data', (data: string) => {
+      console.error('[scraper stderr]', data.toString())
+    })
 
     child.stdout?.on('data', (data: string) => {
       try {
@@ -198,7 +192,110 @@ asyncio.run(scrape())
   }
 }
 
+// 원격 API로 스크래핑 시작
+async function startRemoteScrape(jobId: string, searchTerm: string, region: string, target: number) {
+  try {
+    const res = await fetch(`${SCRAPER_API_URL}/scrape`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: searchTerm, region: region || '', target }),
+    })
+    const data = await res.json()
+
+    if (data.error) {
+      await prisma.scrapeJob.update({ where: { id: jobId }, data: { status: 'failed', errorMessage: data.error } })
+      return NextResponse.json({ error: data.error }, { status: 409 })
+    }
+
+    currentJob = {
+      id: jobId, pid: null, status: 'running', found: 0,
+      target, category: searchTerm, region: region || '전국', mode: 'remote',
+    }
+
+    // 백그라운드에서 원격 상태 폴링 + 완료 시 DB 저장
+    pollRemoteStatus(jobId)
+
+    return NextResponse.json({ ok: true, jobId, mode: 'remote', message: `${searchTerm} 원격 수집 시작 (목표: ${target}개)` })
+  } catch (error) {
+    await prisma.scrapeJob.update({ where: { id: jobId }, data: { status: 'failed', errorMessage: String(error) } })
+    return NextResponse.json({ error: `스크래퍼 API 연결 실패: ${error}` }, { status: 500 })
+  }
+}
+
+// 원격 스크래퍼 상태 폴링
+function pollRemoteStatus(jobId: string) {
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch(`${SCRAPER_API_URL}/status`)
+      const data = await res.json()
+
+      if (currentJob) {
+        currentJob.found = data.found || 0
+      }
+
+      if (data.status === 'done' || data.status === 'failed') {
+        clearInterval(interval)
+        if (currentJob) currentJob.status = data.status
+
+        if (data.status === 'done') {
+          // 결과 가져와서 DB에 저장
+          const resultRes = await fetch(`${SCRAPER_API_URL}/results`)
+          const resultData = await resultRes.json()
+          const businesses = resultData.businesses || []
+
+          if (businesses.length > 0) {
+            const placeIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
+            const existing = placeIds.length > 0
+              ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
+              : []
+            const existingSet = new Set(existing.map(e => e.placeId))
+            const toCreate = businesses.filter((b: { placeId?: string }) => !b.placeId || !existingSet.has(b.placeId))
+
+            if (toCreate.length > 0) {
+              await prisma.business.createMany({
+                data: toCreate.map((b: Record<string, string | null>) => ({
+                  name: b.name, phone: b.phone || null, email: b.email || null,
+                  address: b.address || null, category: b.category || null,
+                  region: b.region || null, naverId: b.naverId || null,
+                  blogUrl: b.blogUrl || null, homepageUrl: b.homepageUrl || null,
+                  placeId: b.placeId || null,
+                })),
+                skipDuplicates: true,
+              })
+            }
+
+            await prisma.scrapeJob.update({
+              where: { id: jobId },
+              data: {
+                status: 'done', totalFound: businesses.length,
+                totalSaved: toCreate.length, withEmail: businesses.length,
+                finishedAt: new Date(),
+              },
+            })
+          }
+        } else {
+          await prisma.scrapeJob.update({
+            where: { id: jobId },
+            data: { status: 'failed', errorMessage: data.error, finishedAt: new Date() },
+          })
+        }
+      }
+    } catch {}
+  }, 5000) // 5초마다 체크
+}
+
 // GET: 현재 작업 상태 조회
 export async function GET() {
-  return NextResponse.json({ job: currentJob })
+  // 원격 모드면 원격 상태도 함께 반환
+  const mode = SCRAPER_API_URL ? 'remote' : 'local'
+  let scraperOnline = false
+
+  if (SCRAPER_API_URL) {
+    try {
+      const res = await fetch(`${SCRAPER_API_URL}/`, { signal: AbortSignal.timeout(3000) })
+      scraperOnline = res.ok
+    } catch {}
+  }
+
+  return NextResponse.json({ job: currentJob, mode, scraperOnline })
 }

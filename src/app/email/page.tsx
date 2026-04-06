@@ -9,6 +9,8 @@ export default function EmailPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [sends, setSends] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [selectedTemplateB, setSelectedTemplateB] = useState(""); // A/B 테스트 B 변형
+  const [abTestMode, setAbTestMode] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState("");
   const [step, setStep] = useState(1);
   const [maxCount, setMaxCount] = useState(100);
@@ -49,6 +51,7 @@ export default function EmailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         templateId: selectedTemplate, step, maxCount, dryRun: true,
+        ...(abTestMode && selectedTemplateB ? { templateIdB: selectedTemplateB } : {}),
         filters: { ...(category && { category }), ...(region && { region }) },
       }),
     });
@@ -75,6 +78,7 @@ export default function EmailPage() {
       body: JSON.stringify({
         templateId: selectedTemplate, step, maxCount, dryRun: false,
         profileId: selectedProfile || undefined,
+        ...(abTestMode && selectedTemplateB ? { templateIdB: selectedTemplateB } : {}),
         filters: { ...(category && { category }), ...(region && { region }) },
       }),
     });
@@ -124,6 +128,27 @@ export default function EmailPage() {
             </select>
           </div>
 
+          {/* A/B 테스트 토글 */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">A/B 테스트</label>
+            <button onClick={() => { setAbTestMode(!abTestMode); setSelectedTemplateB(""); }}
+              className={`w-full px-3 py-2 rounded text-sm font-semibold ${abTestMode ? "bg-orange-500/20 text-orange-400 border border-orange-500/50" : "bg-gray-800 text-gray-400 border border-gray-700"}`}>
+              {abTestMode ? "A/B 테스트 ON" : "A/B 테스트 OFF"}
+            </button>
+          </div>
+
+          {/* A/B 테스트 B 변형 선택 */}
+          {abTestMode && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">B 변형 템플릿</label>
+              <select value={selectedTemplateB} onChange={e => setSelectedTemplateB(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-orange-500/50 rounded text-white text-sm">
+                <option value="">B 변형 선택</option>
+                {templates.filter(t => t.id !== selectedTemplate).map(t => <option key={t.id} value={t.id}>{t.name} ({t.step}차)</option>)}
+              </select>
+            </div>
+          )}
+
           {/* 발송 단계 */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">발송 단계</label>
@@ -171,10 +196,22 @@ export default function EmailPage() {
             <p className="text-white text-sm">
               <span className="text-blue-400">{selectedProf?.serviceName || "기본"}</span>
               {" > "}
-              <span className="text-green-400">{selectedTpl.name}</span>
+              <span className="text-green-400">[A] {selectedTpl.name}</span>
               {" > "}
               제목: (광고) {selectedTpl.subject}
             </p>
+            {abTestMode && selectedTemplateB && (
+              <p className="text-white text-sm mt-1">
+                <span className="text-blue-400">{selectedProf?.serviceName || "기본"}</span>
+                {" > "}
+                <span className="text-orange-400">[B] {templates.find(t => t.id === selectedTemplateB)?.name}</span>
+                {" > "}
+                제목: (광고) {templates.find(t => t.id === selectedTemplateB)?.subject}
+              </p>
+            )}
+            {abTestMode && selectedTemplateB && (
+              <p className="text-xs text-orange-400 mt-2">A/B 테스트: 대상을 50:50으로 나눠서 A/B 변형을 각각 발송합니다</p>
+            )}
           </div>
         )}
 
@@ -194,7 +231,16 @@ export default function EmailPage() {
       {/* 결과 메시지 */}
       {result && (
         <div className={`mb-6 p-4 rounded-lg ${result.error ? "bg-red-900/30 border border-red-800 text-red-400" : "bg-green-900/30 border border-green-800 text-green-400"}`}>
-          {result.message || result.error || `발송: ${result.sent || 0}건, 건너뛰기: ${result.skipped || 0}건`}
+          {result.message || result.error || (
+            result.abTest ? (
+              <div>
+                <p>A/B 테스트 발송 완료 (총 {result.sent || 0}건)</p>
+                <p className="text-sm mt-1">[A] {result.groupA?.sent || 0}건 발송, {result.groupA?.skipped || 0}건 건너뜀</p>
+                <p className="text-sm">[B] {result.groupB?.sent || 0}건 발송, {result.groupB?.skipped || 0}건 건너뜀</p>
+                <p className="text-xs mt-2 text-gray-400">인사이트 페이지에서 A/B 성과를 비교하세요</p>
+              </div>
+            ) : `발송: ${result.sent || 0}건, 건너뛰기: ${result.skipped || 0}건`
+          )}
         </div>
       )}
 
