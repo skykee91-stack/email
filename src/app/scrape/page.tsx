@@ -30,12 +30,14 @@ export default function ScrapePage() {
   const [result, setResult] = useState<any>(null);
   const [scrapeMode, setScrapeMode] = useState<"local" | "remote">("local");
   const [scraperOnline, setScraperOnline] = useState(false);
+  const [queue, setQueue] = useState<any[]>([]);
 
   // 초기 모드 확인 + 이미 실행 중인 작업 감지
   useEffect(() => {
     fetch("/api/scrape/start").then(r => r.json()).then(d => {
       setScrapeMode(d.mode || "local");
       setScraperOnline(d.scraperOnline || false);
+      if (d.queue) setQueue(d.queue);
       if (d.job?.status === "running") {
         setJob(d.job);
         setScraping(true);
@@ -51,6 +53,7 @@ export default function ScrapePage() {
           const res = await fetch("/api/scrape/start");
           const data = await res.json();
           setJob(data.job);
+          if (data.queue) setQueue(data.queue);
           if (data.job?.status === "done" || data.job?.status === "failed") {
             setScraping(false);
             if (pollRef.current) clearInterval(pollRef.current);
@@ -89,6 +92,9 @@ export default function ScrapePage() {
     const data = await res.json();
     if (!res.ok) {
       setResult({ error: data.error });
+      setScraping(false);
+    } else if (data.queued) {
+      setResult({ message: data.message });
       setScraping(false);
     }
   };
@@ -236,6 +242,18 @@ export default function ScrapePage() {
                 style={{ width: `${Math.min((job.found / job.target) * 100, 100)}%` }} />
             </div>
             <p className="text-xs text-gray-500 mt-2">이메일 있는 업체 {job.found}개 확보 중...</p>
+          </div>
+        )}
+
+        {/* 대기열 표시 */}
+        {queue.length > 0 && (
+          <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800/30 rounded-lg">
+            <p className="text-sm text-yellow-400 font-semibold mb-2">대기열 ({queue.length}개)</p>
+            {queue.map((q: any, i: number) => (
+              <p key={i} className="text-xs text-gray-400">
+                {i + 1}. {q.category} / {q.region || "전국"} / {q.target}개
+              </p>
+            ))}
           </div>
         )}
       </div>

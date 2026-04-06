@@ -23,6 +23,16 @@ let currentJob: {
   mode: 'local' | 'remote'
 } | null = null
 
+// 수집 큐
+interface QueueItem {
+  id: string
+  category: string
+  region: string
+  target: number
+  status: 'waiting' | 'running' | 'done' | 'failed'
+}
+const scrapeQueue: QueueItem[] = []
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -34,12 +44,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '검색어 또는 카테고리를 입력하세요' }, { status: 400 })
     }
 
-    // 이미 실행 중이면 거부
+    // 이미 실행 중이면 큐에 추가
     if (currentJob?.status === 'running') {
+      const queueJob = await prisma.scrapeJob.create({
+        data: {
+          region: region || '전국',
+          category: searchTerm,
+          maxResults: target,
+          status: 'pending',
+        },
+      })
+      scrapeQueue.push({
+        id: queueJob.id,
+        category: searchTerm,
+        region: region || '',
+        target,
+        status: 'waiting',
+      })
       return NextResponse.json({
-        error: '이미 수집 중입니다',
-        job: currentJob,
-      }, { status: 409 })
+        ok: true,
+        queued: true,
+        position: scrapeQueue.length,
+        message: `${searchTerm} 수집이 대기열에 추가됨 (${scrapeQueue.length}번째)`,
+      })
     }
 
     // 수집 작업 DB 기록
@@ -178,7 +205,6 @@ export async function POST(req: NextRequest) {
         }
       } catch (e: unknown) {
         console.error('결과 DB 업로드 실패:', e)
-        // DB 업로드 실패해도 작업 상태는 업데이트
         try {
           await prisma.scrapeJob.update({
             where: { id: job.id },
@@ -186,6 +212,9 @@ export async function POST(req: NextRequest) {
           })
         } catch {}
       }
+
+      // 큐에 다음 작업이 있으면 자동 시작
+      processNextInQueue()
     })
 
     return NextResponse.json({
@@ -290,9 +319,108 @@ function pollRemoteStatus(jobId: string) {
   }, 5000) // 5초마다 체크
 }
 
+// 큐에서 다음 작업 자동 시작
+async function processNextInQueue() {
+  if (scrapeQueue.length === 0) return
+  if (currentJob?.status === 'running') return
+
+  const next = scrapeQueue.shift()
+  if (!next) return
+
+  console.log(`[큐] 다음 작업 시작: ${next.category} / ${next.region || '전국'}`)
+
+  // 내부적으로 POST와 같은 로직 실행
+  try {
+    await prisma.scrapeJob.update({
+      where: { id: next.id },
+      data: { status: 'running', startedAt: new Date() },
+    })
+
+    const scraperPath = process.env.SCRAPER_PATH || 'C:/Users/a/naver_place_scraper'
+    const runnerPath = path.join(scraperPath, 'web_scrape_runner.py').replace(/\\/g, '/')
+    const configHex = Buffer.from(JSON.stringify({ category: next.category, region: next.region, target: next.target }), 'utf-8').toString('hex')
+
+    const child = exec(`python -u "${runnerPath}"`, {
+      maxBuffer: 10 * 1024 * 1024,
+      cwd: scraperPath,
+      env: { ...process.env, SCRAPE_CONFIG_HEX: configHex },
+    })
+
+    currentJob = {
+      id: next.id,
+      pid: child.pid || null,
+      status: 'running',
+      found: 0,
+      target: next.target,
+      category: next.category,
+      region: next.region || '전국',
+      mode: 'local',
+    }
+
+    child.stderr?.on('data', (data: string) => {
+      console.error('[scraper stderr]', data.toString())
+    })
+
+    child.stdout?.on('data', (data: string) => {
+      try {
+        const lines = data.trim().split('\n')
+        for (const line of lines) {
+          const msg = JSON.parse(line)
+          if (msg.found && currentJob) currentJob.found = msg.found
+          if (msg.done && currentJob) currentJob.status = 'done'
+        }
+      } catch {}
+    })
+
+    child.on('exit', async (code) => {
+      if (currentJob) currentJob.status = code === 0 ? 'done' : 'failed'
+      try {
+        const resultPath = `${scraperPath}/web_scrape_result.json`
+        if (fs.existsSync(resultPath)) {
+          const data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
+          if (data.businesses?.length > 0) {
+            const businesses = data.businesses
+            const placeIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
+            const existing = placeIds.length > 0
+              ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
+              : []
+            const existingSet = new Set(existing.map(e => e.placeId))
+            const toCreate = businesses.filter((b: { placeId?: string }) => !b.placeId || !existingSet.has(b.placeId))
+            if (toCreate.length > 0) {
+              await prisma.business.createMany({
+                data: toCreate.map((b: Record<string, string | null>) => ({
+                  name: b.name, phone: b.phone || null, email: b.email || null,
+                  address: b.address || null, category: b.category || null,
+                  region: b.region || null, naverId: b.naverId || null,
+                  blogUrl: b.blogUrl || null, homepageUrl: b.homepageUrl || null,
+                  placeId: b.placeId || null,
+                })),
+                skipDuplicates: true,
+              })
+            }
+            await prisma.scrapeJob.update({
+              where: { id: next.id },
+              data: { status: 'done', totalFound: businesses.length, totalSaved: toCreate.length, withEmail: businesses.length, finishedAt: new Date() },
+            })
+          }
+        }
+      } catch (e) {
+        console.error('큐 작업 DB 업로드 실패:', e)
+        try {
+          await prisma.scrapeJob.update({ where: { id: next.id }, data: { status: 'failed', errorMessage: String(e), finishedAt: new Date() } })
+        } catch {}
+      }
+      // 다음 큐 처리
+      processNextInQueue()
+    })
+  } catch (e) {
+    console.error('큐 작업 시작 실패:', e)
+    processNextInQueue()
+  }
+}
+
 // GET: 현재 작업 상태 조회
 export async function GET() {
-  // 원격 모드면 원격 상태도 함께 반환
   const mode = SCRAPER_API_URL ? 'remote' : 'local'
   let scraperOnline = false
 
@@ -303,5 +431,27 @@ export async function GET() {
     } catch {}
   }
 
-  return NextResponse.json({ job: currentJob, mode, scraperOnline })
+  return NextResponse.json({
+    job: currentJob,
+    mode,
+    scraperOnline,
+    queue: scrapeQueue.map(q => ({ id: q.id, category: q.category, region: q.region, target: q.target, status: q.status })),
+    queueLength: scrapeQueue.length,
+  })
+}
+
+// DELETE: 대기열 비우기
+export async function DELETE() {
+  const count = scrapeQueue.length
+  // DB에서도 pending 상태 정리
+  for (const q of scrapeQueue) {
+    try {
+      await prisma.scrapeJob.update({
+        where: { id: q.id },
+        data: { status: 'failed', errorMessage: '대기열에서 제거됨', finishedAt: new Date() },
+      })
+    } catch {}
+  }
+  scrapeQueue.length = 0
+  return NextResponse.json({ cleared: count })
 }
