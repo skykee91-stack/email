@@ -20,6 +20,8 @@ export default function EmailPage() {
   const [result, setResult] = useState<any>(null);
   const [previewTargets, setPreviewTargets] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/templates").then(r => r.json()).then(d => setTemplates(d.templates || []));
@@ -27,6 +29,10 @@ export default function EmailPage() {
       setProfiles(d.profiles || []);
       const def = d.profiles?.find((p: Profile) => p.isDefault);
       if (def) setSelectedProfile(def.id);
+    });
+    fetch("/api/businesses?limit=1").then(r => r.json()).then(d => {
+      if (d.categories) setCategories(d.categories);
+      if (d.regions) setRegions(d.regions);
     });
     fetchSends();
   }, []);
@@ -163,16 +169,27 @@ export default function EmailPage() {
 
           {/* 업종 필터 */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">업종 필터 (선택)</label>
-            <input value={category} onChange={e => setCategory(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm" placeholder="전체 업종" />
+            <label className="block text-sm text-gray-400 mb-1">업종 필터</label>
+            <select value={category} onChange={e => setCategory(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+              <option value="">전체 업종</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
 
           {/* 지역 필터 */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">지역 필터 (선택)</label>
-            <input value={region} onChange={e => setRegion(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm" placeholder="전체 지역" />
+            <label className="block text-sm text-gray-400 mb-1">지역 필터</label>
+            <select value={region} onChange={e => setRegion(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+              <option value="">전체 지역</option>
+              {/* 시/도 대분류 */}
+              {[...new Set(regions.map(r => r.split(" ")[0]))].map(city => (
+                <option key={city} value={city}>── {city} 전체 ──</option>
+              ))}
+              {/* 세부 지역 */}
+              {regions.map(r => <option key={r} value={r}>&nbsp;&nbsp;&nbsp;{r}</option>)}
+            </select>
           </div>
 
           {/* 최대 발송 수 */}

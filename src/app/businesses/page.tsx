@@ -75,10 +75,16 @@ export default function BusinessesPage() {
 
   return (
     <div>
-      {/* 제목 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">업체 목록</h1>
-        <p className="text-gray-400 mt-1">수집된 업체 데이터 관리</p>
+      {/* 제목 + 엑셀 다운로드 */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">업체 목록</h1>
+          <p className="text-gray-400 mt-1">수집된 업체 데이터 관리</p>
+        </div>
+        <a href="/api/businesses/export"
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold">
+          엑셀 다운로드
+        </a>
       </div>
 
       {/* 통계 카드 */}

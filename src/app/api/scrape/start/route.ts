@@ -138,7 +138,6 @@ export async function POST(req: NextRequest) {
       }
       // 결과 파일에서 DB에 자동 업로드
       try {
-        const fs = await import('fs')
         const resultPath = `${scraperPath}/web_scrape_result.json`
         if (fs.existsSync(resultPath)) {
           const data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
@@ -177,8 +176,15 @@ export async function POST(req: NextRequest) {
             })
           }
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.error('결과 DB 업로드 실패:', e)
+        // DB 업로드 실패해도 작업 상태는 업데이트
+        try {
+          await prisma.scrapeJob.update({
+            where: { id: job.id },
+            data: { status: 'failed', errorMessage: String(e), finishedAt: new Date() },
+          })
+        } catch {}
       }
     })
 

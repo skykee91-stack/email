@@ -31,11 +31,15 @@ export default function ScrapePage() {
   const [scrapeMode, setScrapeMode] = useState<"local" | "remote">("local");
   const [scraperOnline, setScraperOnline] = useState(false);
 
-  // 초기 모드 확인
+  // 초기 모드 확인 + 이미 실행 중인 작업 감지
   useEffect(() => {
     fetch("/api/scrape/start").then(r => r.json()).then(d => {
       setScrapeMode(d.mode || "local");
       setScraperOnline(d.scraperOnline || false);
+      if (d.job?.status === "running") {
+        setJob(d.job);
+        setScraping(true);
+      }
     }).catch(() => {});
   }, []);
 
@@ -180,9 +184,29 @@ export default function ScrapePage() {
               className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
           )}
 
-          <input value={region} onChange={e => setRegion(e.target.value)}
-            placeholder="지역 (비우면 서울 전체)"
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+          <select value={region} onChange={e => setRegion(e.target.value)}
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+            <option value="">서울 전체</option>
+            <option value="전국">전국</option>
+            <option value="서울">서울</option>
+            <option value="부산">부산</option>
+            <option value="인천">인천</option>
+            <option value="대구">대구</option>
+            <option value="대전">대전</option>
+            <option value="광주">광주</option>
+            <option value="울산">울산</option>
+            <option value="세종">세종</option>
+            <option value="수원">수원</option>
+            <option value="성남">성남</option>
+            <option value="고양">고양</option>
+            <option value="용인">용인</option>
+            <option value="창원">창원</option>
+            <option value="천안">천안</option>
+            <option value="청주">청주</option>
+            <option value="전주">전주</option>
+            <option value="포항">포항</option>
+            <option value="제주">제주</option>
+          </select>
 
           <select value={target} onChange={e => setTarget(Number(e.target.value))}
             className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">

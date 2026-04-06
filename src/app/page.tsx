@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [recentBiz, setRecentBiz] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [sendCount, setSendCount] = useState(0);
+  const [brevoCredits, setBrevoCredits] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -20,7 +21,8 @@ export default function Dashboard() {
       fetch("/api/businesses?limit=5").then(r => r.json()).catch(() => null),
       fetch("/api/templates").then(r => r.json()).catch(() => null),
       fetch("/api/email/sends?limit=1").then(r => r.json()).catch(() => null),
-    ]).then(([bizStats, funnelData, leadsData, health, bizList, tplData, sendData]) => {
+      fetch("/api/brevo-account").then(r => r.json()).catch(() => null),
+    ]).then(([bizStats, funnelData, leadsData, health, bizList, tplData, sendData, brevoData]) => {
       if (bizStats) setStats(bizStats);
       if (funnelData) setFunnel(funnelData);
       if (leadsData?.tierCounts) setLeads(leadsData.tierCounts);
@@ -28,6 +30,7 @@ export default function Dashboard() {
       if (bizList?.businesses) setRecentBiz(bizList.businesses);
       if (tplData?.templates) setTemplates(tplData.templates);
       if (sendData?.pagination) setSendCount(sendData.pagination.total);
+      if (brevoData?.remainingCredits != null) setBrevoCredits(brevoData.remainingCredits);
     });
   }, []);
 
@@ -47,6 +50,14 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-white">대시보드</h1>
         <p className="text-gray-400 mt-1">영업 이메일 자동화 현황</p>
       </div>
+
+      {/* Brevo 잔여 이메일 */}
+      {brevoCredits !== null && (
+        <div className="mb-4 p-3 bg-gray-900 border border-gray-800 rounded-lg flex items-center justify-between">
+          <span className="text-sm text-gray-400">Brevo 잔여 이메일</span>
+          <span className={`text-lg font-bold ${brevoCredits < 100 ? "text-red-400" : "text-green-400"}`}>{brevoCredits.toLocaleString()}통 남음</span>
+        </div>
+      )}
 
       {/* 핵심 KPI 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

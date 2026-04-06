@@ -37,6 +37,12 @@ export async function GET(req: NextRequest) {
       prisma.business.count({ where }),
     ])
 
+    // 업종/지역 고유 목록 (필터 드롭다운용)
+    const [categoryList, regionList] = await Promise.all([
+      prisma.business.findMany({ where: { category: { not: null } }, select: { category: true }, distinct: ['category'] }),
+      prisma.business.findMany({ where: { region: { not: null } }, select: { region: true }, distinct: ['region'] }),
+    ])
+
     return NextResponse.json({
       businesses,
       pagination: {
@@ -45,6 +51,8 @@ export async function GET(req: NextRequest) {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      categories: categoryList.map(c => c.category).filter(Boolean),
+      regions: regionList.map(r => r.region).filter(Boolean),
     })
   } catch (error) {
     return NextResponse.json(

@@ -7,6 +7,10 @@ import { SELLPO_STEP1_SUBJECT, SELLPO_STEP1_HTML } from '@/lib/email/templates/s
 import { SELLPO_STEP2_SUBJECT, SELLPO_STEP2_HTML } from '@/lib/email/templates/sellpo-step2'
 import { SELLPO_STEP3_SUBJECT, SELLPO_STEP3_HTML } from '@/lib/email/templates/sellpo-step3'
 import { SELLPO_STEP4_SUBJECT, SELLPO_STEP4_HTML } from '@/lib/email/templates/sellpo-step4'
+import { P1COAT_STEP1_SUBJECT, P1COAT_STEP1_HTML } from '@/lib/email/templates/p1coat-step1'
+import { P1COAT_STEP2_SUBJECT, P1COAT_STEP2_HTML } from '@/lib/email/templates/p1coat-step2'
+import { P1COAT_STEP3_SUBJECT, P1COAT_STEP3_HTML } from '@/lib/email/templates/p1coat-step3'
+import { P1COAT_STEP4_SUBJECT, P1COAT_STEP4_HTML } from '@/lib/email/templates/p1coat-step4'
 
 const PRESETS: Record<string, { name: string; step: number; subject: string; htmlBody: string }[]> = {
   '셀포': [
@@ -14,6 +18,12 @@ const PRESETS: Record<string, { name: string; step: number; subject: string; htm
     { name: '셀포 - 2차 후기공유', step: 2, subject: SELLPO_STEP2_SUBJECT, htmlBody: SELLPO_STEP2_HTML },
     { name: '셀포 - 3차 비교표', step: 3, subject: SELLPO_STEP3_SUBJECT, htmlBody: SELLPO_STEP3_HTML },
     { name: '셀포 - 4차 마지막', step: 4, subject: SELLPO_STEP4_SUBJECT, htmlBody: SELLPO_STEP4_HTML },
+  ],
+  '피원코팅즈': [
+    { name: '피원코팅즈 - 1차 대리점모집', step: 1, subject: P1COAT_STEP1_SUBJECT, htmlBody: P1COAT_STEP1_HTML },
+    { name: '피원코팅즈 - 2차 기술비교', step: 2, subject: P1COAT_STEP2_SUBJECT, htmlBody: P1COAT_STEP2_HTML },
+    { name: '피원코팅즈 - 3차 수익성', step: 3, subject: P1COAT_STEP3_SUBJECT, htmlBody: P1COAT_STEP3_HTML },
+    { name: '피원코팅즈 - 4차 마지막', step: 4, subject: P1COAT_STEP4_SUBJECT, htmlBody: P1COAT_STEP4_HTML },
   ],
 }
 
