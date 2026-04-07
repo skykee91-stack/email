@@ -92,15 +92,17 @@ export const P1COAT_STEP3_HTML = `
           <!-- CTA 버튼 2개 -->
           <tr>
             <td style="padding:0 40px 36px; text-align:center;">
-              <a href="https://peelable.kr/brand01" style="display:inline-block; background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 8px 20px -4px rgba(26,26,46,0.35); margin-right:8px;">
-                대리점 문의하기 →
-              </a>
-              <a href="http://pf.kakao.com/_xopfQn" style="display:inline-block; background:#FEE500; color:#191F28; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 4px 12px rgba(0,0,0,0.08); margin-right:8px;">
-                카카오톡 문의 →
-              </a>
-              <a href="https://blog.naver.com/p1cotingskorea" style="display:inline-block; background:#03C75A; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-                포트폴리오 →
-              </a>
+              <table width="100%" cellpadding="0" cellspacing="0"><tr>
+                <td width="33%" style="text-align:center; padding:0 4px;">
+                  <a href="https://peelable.kr/brand01" style="display:block; background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color:#ffffff; font-size:12px; font-weight:700; text-decoration:none; padding:11px 8px; border-radius:24px;">알아보기</a>
+                </td>
+                <td width="33%" style="text-align:center; padding:0 4px;">
+                  <a href="http://pf.kakao.com/_xopfQn" style="display:block; background:#FEE500; color:#191F28; font-size:12px; font-weight:700; text-decoration:none; padding:11px 8px; border-radius:24px;">카카오톡</a>
+                </td>
+                <td width="33%" style="text-align:center; padding:0 4px;">
+                  <a href="https://blog.naver.com/p1cotingskorea" style="display:block; background:#03C75A; color:#ffffff; font-size:12px; font-weight:700; text-decoration:none; padding:11px 8px; border-radius:24px;">포트폴리오</a>
+                </td>
+              </tr></table>
             </td>
           </tr>
 
