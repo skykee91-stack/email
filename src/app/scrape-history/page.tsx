@@ -49,6 +49,12 @@ export default function ScrapeHistoryPage() {
 
   useEffect(() => { fetchJobs(); }, [page, statusFilter]);
 
+  // 5초마다 자동 갱신
+  useEffect(() => {
+    const interval = setInterval(fetchJobs, 5000);
+    return () => clearInterval(interval);
+  }, [page, statusFilter]);
+
   const formatDate = (d: string | null) => {
     if (!d) return "-";
     return new Date(d).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
