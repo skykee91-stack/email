@@ -32,7 +32,12 @@ export async function POST(req: NextRequest) {
       case 'click':
         await prisma.emailSend.update({
           where: { id: send.id },
-          data: { clickedAt: send.clickedAt || new Date(), clickCount: { increment: 1 } },
+          data: {
+            clickedAt: send.clickedAt || new Date(),
+            clickCount: { increment: 1 },
+            openedAt: send.openedAt || new Date(),
+            openCount: send.openCount > 0 ? undefined : 1,
+          },
         })
         await calculateLeadScore(send.businessId)
         break
