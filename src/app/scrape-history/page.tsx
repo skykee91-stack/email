@@ -34,26 +34,30 @@ export default function ScrapeHistoryPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const fetchJobs = async () => {
-    setLoading(true);
+  const fetchJobs = async (silent = false) => {
+    if (!silent) setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "15" });
     if (statusFilter) params.set("status", statusFilter);
 
     const res = await fetch(`/api/scrape/jobs?${params}`);
     const data = await res.json();
-    setJobs(data.jobs || []);
-    setStats(data.stats || null);
+    const newJobs = data.jobs || [];
+    // 데이터 바뀔 때만 업데이트 (깜빡임 방지)
+    if (JSON.stringify(newJobs) !== JSON.stringify(jobs)) {
+      setJobs(newJobs);
+    }
+    if (data.stats) setStats(data.stats);
     setTotalPages(data.pagination?.totalPages || 1);
-    setLoading(false);
+    if (!silent) setLoading(false);
   };
 
   useEffect(() => { fetchJobs(); }, [page, statusFilter]);
 
-  // 5초마다 자동 갱신
+  // 5초마다 조용히 갱신 (깜빡임 없이)
   useEffect(() => {
-    const interval = setInterval(fetchJobs, 5000);
+    const interval = setInterval(() => fetchJobs(true), 5000);
     return () => clearInterval(interval);
-  }, [page, statusFilter]);
+  }, [page, statusFilter, jobs]);
 
   const formatDate = (d: string | null) => {
     if (!d) return "-";
