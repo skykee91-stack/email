@@ -169,15 +169,22 @@ export async function POST(req: NextRequest) {
         if (fs.existsSync(resultPath)) {
           const data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
           if (data.businesses?.length > 0) {
-            // 벌크 등록 (중복 건너뛰기)
+            // 벌크 등록 (placeId + 이메일 중복 건너뛰기)
             const businesses = data.businesses
             const placeIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
-            const existing = placeIds.length > 0
+            const emails = businesses.map((b: { email?: string }) => b.email).filter(Boolean)
+            const existingByPlace = placeIds.length > 0
               ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
               : []
-            const existingSet = new Set(existing.map(e => e.placeId))
+            const existingByEmail = emails.length > 0
+              ? await prisma.business.findMany({ where: { email: { in: emails } }, select: { email: true } })
+              : []
+            const existingPlaceSet = new Set(existingByPlace.map(e => e.placeId))
+            const existingEmailSet = new Set(existingByEmail.map(e => e.email))
 
-            const toCreate = businesses.filter((b: { placeId?: string }) => !b.placeId || !existingSet.has(b.placeId))
+            const toCreate = businesses.filter((b: { placeId?: string; email?: string }) =>
+              (!b.placeId || !existingPlaceSet.has(b.placeId)) && (!b.email || !existingEmailSet.has(b.email))
+            )
             if (toCreate.length > 0) {
               await prisma.business.createMany({
                 data: toCreate.map((b: Record<string, string | null>) => ({
@@ -280,11 +287,18 @@ function pollRemoteStatus(jobId: string) {
 
           if (businesses.length > 0) {
             const placeIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
-            const existing = placeIds.length > 0
+            const emails = businesses.map((b: { email?: string }) => b.email).filter(Boolean)
+            const existingByPlace = placeIds.length > 0
               ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
               : []
-            const existingSet = new Set(existing.map(e => e.placeId))
-            const toCreate = businesses.filter((b: { placeId?: string }) => !b.placeId || !existingSet.has(b.placeId))
+            const existingByEmail = emails.length > 0
+              ? await prisma.business.findMany({ where: { email: { in: emails } }, select: { email: true } })
+              : []
+            const existingPlaceSet = new Set(existingByPlace.map(e => e.placeId))
+            const existingEmailSet = new Set(existingByEmail.map(e => e.email))
+            const toCreate = businesses.filter((b: { placeId?: string; email?: string }) =>
+              (!b.placeId || !existingPlaceSet.has(b.placeId)) && (!b.email || !existingEmailSet.has(b.email))
+            )
 
             if (toCreate.length > 0) {
               await prisma.business.createMany({
@@ -381,11 +395,18 @@ async function processNextInQueue() {
           if (data.businesses?.length > 0) {
             const businesses = data.businesses
             const placeIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
-            const existing = placeIds.length > 0
+            const emails = businesses.map((b: { email?: string }) => b.email).filter(Boolean)
+            const existingByPlace = placeIds.length > 0
               ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
               : []
-            const existingSet = new Set(existing.map(e => e.placeId))
-            const toCreate = businesses.filter((b: { placeId?: string }) => !b.placeId || !existingSet.has(b.placeId))
+            const existingByEmail = emails.length > 0
+              ? await prisma.business.findMany({ where: { email: { in: emails } }, select: { email: true } })
+              : []
+            const existingPlaceSet = new Set(existingByPlace.map(e => e.placeId))
+            const existingEmailSet = new Set(existingByEmail.map(e => e.email))
+            const toCreate = businesses.filter((b: { placeId?: string; email?: string }) =>
+              (!b.placeId || !existingPlaceSet.has(b.placeId)) && (!b.email || !existingEmailSet.has(b.email))
+            )
             if (toCreate.length > 0) {
               await prisma.business.createMany({
                 data: toCreate.map((b: Record<string, string | null>) => ({
