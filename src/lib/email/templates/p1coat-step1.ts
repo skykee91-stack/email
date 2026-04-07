@@ -98,8 +98,11 @@ export const P1COAT_STEP1_HTML = `
               <a href="https://peelable.kr/brand01" style="display:inline-block; background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 8px 20px -4px rgba(26,26,46,0.35); margin-right:8px;">
                 피원코팅즈 알아보기 →
               </a>
-              <a href="http://pf.kakao.com/_xopfQn" style="display:inline-block; background:#FEE500; color:#191F28; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+              <a href="http://pf.kakao.com/_xopfQn" style="display:inline-block; background:#FEE500; color:#191F28; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 4px 12px rgba(0,0,0,0.08); margin-right:8px;">
                 카카오톡 문의 →
+              </a>
+              <a href="https://blog.naver.com/p1cotingskorea" style="display:inline-block; background:#03C75A; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none; padding:13px 32px; border-radius:28px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                포트폴리오 →
               </a>
             </td>
           </tr>
