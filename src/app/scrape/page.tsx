@@ -11,66 +11,21 @@ const CATEGORIES = [
   "호텔", "펜션", "부동산",
 ];
 
-// 관련 키워드 매핑 (Python data.py의 KEYWORD_GROUPS와 동일)
-const KEYWORD_GROUPS: Record<string, string[]> = {
-  // 자동차
-  "랩핑": ["랩핑", "차량랩핑", "카랩핑", "자동차랩핑", "PPF", "랩핑업체", "광고랩핑"],
-  "차량랩핑": ["차량랩핑", "랩핑", "카랩핑", "자동차랩핑", "PPF"],
-  "PPF": ["PPF", "랩핑", "차량랩핑", "페인트보호필름"],
-  "자동차정비": ["자동차정비", "카센터", "자동차수리", "자동차공업사"],
-  "카센터": ["카센터", "자동차정비", "자동차수리", "자동차공업사"],
-  "세차장": ["세차장", "세차", "손세차", "자동세차", "셀프세차"],
-  "자동차튜닝": ["자동차튜닝", "튜닝샵", "자동차용품", "카튜닝"],
-  "타이어": ["타이어", "타이어교체", "타이어가게", "타이어전문점"],
-  // 미용·뷰티
-  "미용실": ["미용실", "헤어살롱", "헤어샵", "미장원"],
-  "네일샵": ["네일샵", "네일아트", "젤네일", "네일케어"],
-  "피부관리": ["피부관리", "피부관리실", "에스테틱", "피부샵"],
-  "피부과": ["피부과", "피부클리닉", "피부전문", "피부과의원"],
-  "속눈썹": ["속눈썹", "속눈썹연장", "래쉬", "속눈썹펌"],
-  "왁싱": ["왁싱", "왁싱샵", "브라질리언왁싱", "제모"],
-  "타투": ["타투", "타투샵", "문신", "반영구"],
-  // 건강·운동
-  "마사지": ["마사지", "마사지샵", "스포츠마사지", "경락마사지", "타이마사지"],
-  "필라테스": ["필라테스", "필라테스학원", "요가필라테스"],
-  "요가": ["요가", "요가학원", "요가원", "핫요가"],
-  "헬스장": ["헬스장", "피트니스", "헬스클럽", "GYM", "짐"],
-  "수영장": ["수영장", "수영강습", "실내수영장", "스포츠센터"],
-  // 병원·의료
-  "치과": ["치과", "치과의원", "임플란트치과", "교정치과", "치아교정"],
-  "병원": ["병원", "의원", "종합병원", "내과", "외과"],
-  "한의원": ["한의원", "한방병원", "한방클리닉", "한의"],
-  "동물병원": ["동물병원", "동물의료센터", "펫클리닉", "수의과"],
-  "성형외과": ["성형외과", "성형외과의원", "미용성형", "성형클리닉"],
-  // 음식·카페
-  "카페": ["카페", "커피숍", "커피전문점", "디저트카페", "브런치카페"],
-  "음식점": ["음식점", "맛집", "식당", "한식", "중식"],
-  // 교육
-  "학원": ["학원", "보습학원", "입시학원", "종합학원"],
-  "영어학원": ["영어학원", "어학원", "영어교습소", "영어과외"],
-  "수학학원": ["수학학원", "수학교습소", "수학과외", "수학전문"],
-  "코딩학원": ["코딩학원", "프로그래밍학원", "코딩교육", "SW학원"],
-  // 인테리어·청소
-  "인테리어": ["인테리어", "인테리어업체", "실내인테리어", "리모델링"],
-  "도배": ["도배", "도배장판", "도배업체", "장판"],
-  "청소업체": ["청소업체", "청소대행", "입주청소", "이사청소", "사무실청소"],
-  "이사업체": ["이사업체", "포장이사", "원룸이사", "사무실이사", "이사"],
-  "에어컨청소": ["에어컨청소", "에어컨세척", "에어컨클리닝"],
-  // IT·마케팅
-  "홈페이지제작": ["홈페이지제작", "웹사이트제작", "웹디자인", "홈페이지개발"],
-  "광고대행사": ["광고대행사", "마케팅대행", "광고대행", "온라인마케팅"],
-  "SNS마케팅": ["SNS마케팅", "인스타마케팅", "블로그마케팅", "소셜마케팅"],
-  // 법률·세무
-  "세무사": ["세무사", "세무법인", "세무회계", "기장대행"],
-  "변호사": ["변호사", "법률사무소", "법률상담", "로펌"],
-  // 인쇄·간판
-  "간판": ["간판", "간판제작", "LED간판", "네온사인", "사인물"],
-  "인쇄소": ["인쇄소", "인쇄업체", "디지털인쇄", "명함인쇄"],
-  // 숙박·부동산
-  "호텔": ["호텔", "모텔", "숙박", "리조트", "게스트하우스"],
-  "펜션": ["펜션", "풀빌라", "글램핑", "캠핑장"],
-  "부동산": ["부동산", "공인중개사", "부동산중개", "부동산컨설팅"],
-};
+// 네이버 광고 API로 관련 키워드를 자동 조회하는 함수
+async function fetchRelatedKeywords(query: string): Promise<{ keyword: string; totalSearches: number; competition: string }[]> {
+  try {
+    const res = await fetch("/api/keywords/expand", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.keywords || [];
+  } catch {
+    return [];
+  }
+}
 
 export default function ScrapePage() {
   // 자동 수집
@@ -80,15 +35,42 @@ export default function ScrapePage() {
   const [region, setRegion] = useState("");
   const [target, setTarget] = useState(100);
   const [keywords, setKeywords] = useState("");  // 관련 키워드 (쉼표 구분)
+  const [keywordLoading, setKeywordLoading] = useState(false); // 키워드 로딩 중
+  const [keywordDetails, setKeywordDetails] = useState<{ keyword: string; totalSearches: number; competition: string }[]>([]);
   const [scraping, setScraping] = useState(false);
   const [job, setJob] = useState<any>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const keywordTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 카테고리/검색어 변경 시 관련 키워드 자동 로드
+  // 카테고리/검색어 변경 시 네이버 API로 관련 키워드 자동 조회
   useEffect(() => {
     const query = searchMode === "custom" ? customQuery : category;
-    const mapped = KEYWORD_GROUPS[query];
-    setKeywords(mapped ? mapped.join(", ") : query);
+    if (!query || query.length < 2) {
+      setKeywords(query);
+      setKeywordDetails([]);
+      return;
+    }
+
+    // 타이핑 중 과도한 API 호출 방지 (0.8초 대기 후 호출)
+    if (keywordTimerRef.current) clearTimeout(keywordTimerRef.current);
+    keywordTimerRef.current = setTimeout(async () => {
+      setKeywordLoading(true);
+      const results = await fetchRelatedKeywords(query);
+      if (results.length > 0) {
+        setKeywordDetails(results);
+        // 원래 검색어 + 관련 키워드 (검색량 순)
+        const kwList = results.map(r => r.keyword);
+        // 원래 검색어가 목록에 없으면 맨 앞에 추가
+        if (!kwList.includes(query)) kwList.unshift(query);
+        setKeywords(kwList.join(", "));
+      } else {
+        setKeywordDetails([]);
+        setKeywords(query);
+      }
+      setKeywordLoading(false);
+    }, 800);
+
+    return () => { if (keywordTimerRef.current) clearTimeout(keywordTimerRef.current); };
   }, [category, customQuery, searchMode]);
 
   // 파일 업로드
@@ -301,12 +283,28 @@ export default function ScrapePage() {
           </button>
         </div>
 
-        {/* 관련 키워드 편집 */}
+        {/* 관련 키워드 (네이버 API 자동 조회) */}
         <div className="mb-4">
-          <label className="block text-sm text-gray-400 mb-1">관련 키워드 (자동 로드, 직접 수정 가능 - 쉼표로 구분)</label>
+          <div className="flex items-center gap-2 mb-1">
+            <label className="text-sm text-gray-400">관련 키워드 (네이버 API 자동 조회, 직접 수정 가능)</label>
+            {keywordLoading && <span className="text-xs text-blue-400 animate-pulse">조회 중...</span>}
+          </div>
           <input value={keywords} onChange={e => setKeywords(e.target.value)}
-            placeholder="쉼표로 구분 (예: 랩핑, 차량랩핑, PPF)"
+            placeholder="카테고리나 검색어를 입력하면 자동으로 관련 키워드가 채워집니다"
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+          {keywordDetails.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {keywordDetails.slice(0, 10).map((kw, i) => (
+                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-gray-800 border border-gray-700">
+                  <span className="text-white">{kw.keyword}</span>
+                  <span className="text-gray-500">{kw.totalSearches.toLocaleString()}</span>
+                  <span className={kw.competition === "높음" ? "text-red-400" : kw.competition === "중간" ? "text-yellow-400" : "text-green-400"}>
+                    {kw.competition}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
           <p className="text-xs text-gray-600 mt-1">
             각 키워드로 순차 검색하여 더 많은 업체를 수집합니다. 불필요한 키워드는 삭제하세요.
           </p>
