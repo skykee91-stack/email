@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { startSyncCron } from '@/lib/email/sync'
+
+// 크론 자동 시작 (stats 페이지 접근 시)
+startSyncCron()
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
