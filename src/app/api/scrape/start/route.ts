@@ -147,7 +147,13 @@ export async function POST(req: NextRequest) {
         const resultPath = `${scraperPath}/web_scrape_result.json`
         if (!fs.existsSync(resultPath)) return
 
-        const data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
+        let data
+        try {
+          data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
+        } catch {
+          // Python이 파일 쓰는 중이면 JSON이 깨질 수 있음 → 다음에 다시 시도
+          return
+        }
         const businesses = data.businesses || []
         if (businesses.length <= lastSavedCount) return // 새로 저장할 게 없음
 
