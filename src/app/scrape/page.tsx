@@ -11,6 +11,41 @@ const CATEGORIES = [
   "호텔", "펜션", "부동산",
 ];
 
+// 관련 키워드 매핑 (Python data.py의 KEYWORD_GROUPS와 동일)
+const KEYWORD_GROUPS: Record<string, string[]> = {
+  "랩핑": ["랩핑", "차량랩핑", "카랩핑", "자동차랩핑", "PPF", "랩핑업체", "광고랩핑"],
+  "차량랩핑": ["차량랩핑", "랩핑", "카랩핑", "자동차랩핑", "PPF"],
+  "PPF": ["PPF", "랩핑", "차량랩핑", "페인트보호필름"],
+  "자동차정비": ["자동차정비", "카센터", "자동차수리", "자동차공업사"],
+  "카센터": ["카센터", "자동차정비", "자동차수리", "자동차공업사"],
+  "세차장": ["세차장", "세차", "손세차", "자동세차", "셀프세차"],
+  "자동차튜닝": ["자동차튜닝", "튜닝샵", "자동차용품", "카튜닝"],
+  "타이어": ["타이어", "타이어교체", "타이어가게", "타이어전문점"],
+  "미용실": ["미용실", "헤어살롱", "헤어샵", "미장원"],
+  "네일샵": ["네일샵", "네일아트", "젤네일", "네일케어"],
+  "피부관리": ["피부관리", "피부관리실", "에스테틱", "피부샵"],
+  "속눈썹": ["속눈썹", "속눈썹연장", "래쉬", "속눈썹펌"],
+  "왁싱": ["왁싱", "왁싱샵", "브라질리언왁싱", "제모"],
+  "타투": ["타투", "타투샵", "문신", "반영구"],
+  "마사지": ["마사지", "마사지샵", "스포츠마사지", "경락마사지", "타이마사지"],
+  "필라테스": ["필라테스", "필라테스학원", "요가필라테스"],
+  "요가": ["요가", "요가학원", "요가원", "핫요가"],
+  "헬스장": ["헬스장", "피트니스", "헬스클럽", "GYM"],
+  "인테리어": ["인테리어", "인테리어업체", "실내인테리어", "리모델링"],
+  "도배": ["도배", "도배장판", "도배업체", "장판"],
+  "청소업체": ["청소업체", "청소대행", "입주청소", "이사청소", "사무실청소"],
+  "에어컨청소": ["에어컨청소", "에어컨세척", "에어컨클리닝"],
+  "영어학원": ["영어학원", "어학원", "영어교습소", "영어과외"],
+  "코딩학원": ["코딩학원", "프로그래밍학원", "코딩교육", "SW학원"],
+  "홈페이지제작": ["홈페이지제작", "웹사이트제작", "웹디자인", "홈페이지개발"],
+  "광고대행사": ["광고대행사", "마케팅대행", "광고대행", "온라인마케팅"],
+  "SNS마케팅": ["SNS마케팅", "인스타마케팅", "블로그마케팅", "소셜마케팅"],
+  "세무사": ["세무사", "세무법인", "세무회계", "기장대행"],
+  "변호사": ["변호사", "법률사무소", "법률상담", "로펌"],
+  "간판": ["간판", "간판제작", "LED간판", "네온사인", "사인물"],
+  "인쇄소": ["인쇄소", "인쇄업체", "디지털인쇄", "명함인쇄"],
+};
+
 export default function ScrapePage() {
   // 자동 수집
   const [searchMode, setSearchMode] = useState<"category" | "custom">("category");
@@ -18,9 +53,17 @@ export default function ScrapePage() {
   const [customQuery, setCustomQuery] = useState("");
   const [region, setRegion] = useState("");
   const [target, setTarget] = useState(100);
+  const [keywords, setKeywords] = useState("");  // 관련 키워드 (쉼표 구분)
   const [scraping, setScraping] = useState(false);
   const [job, setJob] = useState<any>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 카테고리/검색어 변경 시 관련 키워드 자동 로드
+  useEffect(() => {
+    const query = searchMode === "custom" ? customQuery : category;
+    const mapped = KEYWORD_GROUPS[query];
+    setKeywords(mapped ? mapped.join(", ") : query);
+  }, [category, customQuery, searchMode]);
 
   // 파일 업로드
   const [file, setFile] = useState<File | null>(null);
@@ -80,6 +123,9 @@ export default function ScrapePage() {
     setResult(null);
     setJob(null);
 
+    // 키워드 파싱 (쉼표로 구분)
+    const keywordList = keywords.split(",").map(k => k.trim()).filter(Boolean);
+
     const res = await fetch("/api/scrape/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -87,6 +133,7 @@ export default function ScrapePage() {
         ...(searchMode === "custom" ? { query: customQuery } : { category }),
         region: region || undefined,
         target,
+        keywords: keywordList.length > 0 ? keywordList : undefined,
       }),
     });
     const data = await res.json();
@@ -228,7 +275,18 @@ export default function ScrapePage() {
           </button>
         </div>
 
-        <p className="text-xs text-gray-500">이메일 있는 업체만 수집됩니다. 수집 완료 시 DB에 자동 저장.</p>
+        {/* 관련 키워드 편집 */}
+        <div className="mb-4">
+          <label className="block text-sm text-gray-400 mb-1">관련 키워드 (자동 로드, 직접 수정 가능 - 쉼표로 구분)</label>
+          <input value={keywords} onChange={e => setKeywords(e.target.value)}
+            placeholder="쉼표로 구분 (예: 랩핑, 차량랩핑, PPF)"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500" />
+          <p className="text-xs text-gray-600 mt-1">
+            각 키워드로 순차 검색하여 더 많은 업체를 수집합니다. 불필요한 키워드는 삭제하세요.
+          </p>
+        </div>
+
+        <p className="text-xs text-gray-500">이메일 없는 업체도 수집됩니다. 수집 완료 시 DB에 자동 저장.</p>
 
         {/* 진행률 */}
         {job && job.status === "running" && (
@@ -241,7 +299,7 @@ export default function ScrapePage() {
               <div className="bg-blue-600 rounded-full h-2 transition-all"
                 style={{ width: `${Math.min((job.found / job.target) * 100, 100)}%` }} />
             </div>
-            <p className="text-xs text-gray-500 mt-2">이메일 있는 업체 {job.found}개 확보 중...</p>
+            <p className="text-xs text-gray-500 mt-2">업체 {job.found}개 확보 중... (이메일 없는 업체 포함)</p>
           </div>
         )}
 

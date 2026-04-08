@@ -36,7 +36,7 @@ const scrapeQueue: QueueItem[] = []
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { query, category, region, target = 100 } = body
+    const { query, category, region, target = 100, keywords } = body
 
     // 검색어 또는 카테고리 필수
     const searchTerm = query || category
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     // 환경변수로 전달 (환경변수는 유니코드 지원)
     // 한글을 hex로 인코딩해서 환경변수로 전달 (Windows 한글 깨짐 방지)
-    const configHex = Buffer.from(JSON.stringify({ category: searchTerm, region: region || '', target }), 'utf-8').toString('hex')
+    const configHex = Buffer.from(JSON.stringify({ category: searchTerm, region: region || '', target, keywords: keywords || [] }), 'utf-8').toString('hex')
 
     const child = exec(`python -u "${runnerPath}"`, {
       maxBuffer: 10 * 1024 * 1024,
@@ -352,7 +352,7 @@ async function processNextInQueue() {
 
     const scraperPath = process.env.SCRAPER_PATH || 'C:/Users/a/naver_place_scraper'
     const runnerPath = path.join(scraperPath, 'web_scrape_runner.py').replace(/\\/g, '/')
-    const configHex = Buffer.from(JSON.stringify({ category: next.category, region: next.region, target: next.target }), 'utf-8').toString('hex')
+    const configHex = Buffer.from(JSON.stringify({ category: next.category, region: next.region, target: next.target, keywords: [] }), 'utf-8').toString('hex')
 
     const child = exec(`python -u "${runnerPath}"`, {
       maxBuffer: 10 * 1024 * 1024,
