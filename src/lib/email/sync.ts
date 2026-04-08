@@ -54,14 +54,14 @@ export async function syncBrevoEvents() {
     }
 
     // 클릭 이벤트 동기화
-    const clickData = await brevo.getEvents({ limit: 500, event: 'click' })
+    const clickData = await brevo.getEvents({ limit: 500, event: 'clicks' })
     for (const event of clickData.events || []) {
       const updated = await processEvent(event, 'click')
       if (updated) stats.clicked++
     }
 
     // 반송 이벤트 동기화
-    for (const bounceType of ['hardBounce', 'softBounce']) {
+    for (const bounceType of ['hardBounces', 'softBounces']) {
       const bounceData = await brevo.getEvents({ limit: 500, event: bounceType })
       for (const event of bounceData.events || []) {
         const updated = await processEvent(event, 'bounce')
