@@ -178,8 +178,9 @@ export async function POST(req: NextRequest) {
         const businesses = data.businesses || []
         if (businesses.length <= lastSavedCount) return // 새로 저장할 게 없음
 
-        // 새로 추가된 업체만 처리
-        const newBusinesses = businesses.slice(lastSavedCount)
+        // 새로 추가된 업체 중 이메일 있는 것만 DB에 저장
+        const newBusinesses = businesses.slice(lastSavedCount).filter((b: { email?: string }) => b.email)
+        if (newBusinesses.length === 0) { lastSavedCount = businesses.length; return }
         const placeIds = newBusinesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
         const existingByPlace = placeIds.length > 0
           ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
@@ -204,6 +205,9 @@ export async function POST(req: NextRequest) {
 
         lastSavedCount = businesses.length
         const withEmail = businesses.filter((b: { email?: string }) => b.email).length
+        const totalSavedToDB = await prisma.business.count({
+          where: { placeId: { in: businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean) as string[] } },
+        })
 
         // 수집이력 실시간 업데이트
         await prisma.scrapeJob.update({
@@ -211,7 +215,7 @@ export async function POST(req: NextRequest) {
           data: {
             status: isFinal ? 'done' : 'running',
             totalFound: businesses.length,
-            totalSaved: lastSavedCount,
+            totalSaved: totalSavedToDB,
             withEmail,
             ...(isFinal ? { finishedAt: new Date() } : {}),
           },
