@@ -4,6 +4,7 @@
 import { prisma } from '@/lib/prisma'
 import { brevo } from '@/lib/brevo'
 import { renderTemplate } from '@/lib/email/template'
+import { verifyEmail } from '@/lib/email/verify'
 
 interface SendEmailParams {
   businessId: string
@@ -24,6 +25,21 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
   // 3. 반송 체크
   if (business.status === 'bounced') return { error: '반송된 이메일', skipped: true }
   if (business.status === 'unsubscribed') return { error: '수신거부 상태', skipped: true }
+
+  // 3-1. 이메일 유효성 검증 (SMTP 레벨 — 존재하지 않는 이메일 사전 차단)
+  try {
+    const verification = await verifyEmail(business.email)
+    if (!verification.valid) {
+      // 존재하지 않는 이메일 → bounced 처리
+      await prisma.business.update({
+        where: { id: businessId },
+        data: { status: 'bounced' },
+      })
+      return { error: `이메일 검증 실패 (${verification.reason})`, skipped: true }
+    }
+  } catch {
+    // 검증 실패해도 발송은 계속 (검증이 불가능한 경우)
+  }
 
   // 4. 야간 시간 체크 (21시~08시 발송 금지) - 실서비스 시 활성화
   // const hour = new Date().getUTCHours() + 9 // KST
