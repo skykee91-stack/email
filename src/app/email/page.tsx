@@ -22,6 +22,7 @@ export default function EmailPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
+  const [previewEmail, setPreviewEmail] = useState<any>(null); // 보낸 이메일 미리보기
 
   useEffect(() => {
     fetch("/api/templates").then(r => r.json()).then(d => setTemplates(d.templates || []));
@@ -313,7 +314,7 @@ export default function EmailPage() {
             {sends.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-8 text-gray-500">발송 이력이 없습니다</td></tr>
             ) : sends.map((s: any) => (
-              <tr key={s.id} className="border-b border-gray-800 hover:bg-gray-800/30">
+              <tr key={s.id} className="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer" onClick={() => setPreviewEmail(s)} title="클릭하면 보낸 이메일 내용을 볼 수 있습니다">
                 <td className="px-4 py-3 text-white">{s.business?.name}</td>
                 <td className="px-4 py-3 text-gray-300 text-xs">{s.business?.email || "-"}</td>
                 <td className="px-4 py-3"><span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs">{s.step}차</span></td>
@@ -325,6 +326,39 @@ export default function EmailPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 보낸 이메일 미리보기 모달 */}
+      {previewEmail && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setPreviewEmail(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* 헤더 */}
+            <div className="p-4 border-b border-gray-800 flex justify-between items-start">
+              <div>
+                <h3 className="text-white font-semibold">보낸 이메일 미리보기</h3>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="text-gray-400">받는 사람: <span className="text-white">{previewEmail.business?.name}</span> ({previewEmail.business?.email})</p>
+                  <p className="text-gray-400">단계: <span className="text-blue-400">{previewEmail.step}차</span> | 상태: <StatusBadge status={previewEmail.status} /> | 열람: {previewEmail.openCount || 0}회</p>
+                  <p className="text-gray-400">발송일: {previewEmail.sentAt ? new Date(previewEmail.sentAt).toLocaleString("ko-KR") : "-"}</p>
+                </div>
+              </div>
+              <button onClick={() => setPreviewEmail(null)} className="text-gray-500 hover:text-white text-xl px-2">✕</button>
+            </div>
+            {/* 제목 */}
+            <div className="px-4 py-3 border-b border-gray-800 bg-gray-800/30">
+              <p className="text-gray-400 text-xs mb-1">제목</p>
+              <p className="text-white text-sm">{previewEmail.renderedSubject || "(저장된 제목 없음 - 이전 발송분)"}</p>
+            </div>
+            {/* 본문 */}
+            <div className="p-4 overflow-y-auto" style={{ maxHeight: "50vh" }}>
+              {previewEmail.renderedBody ? (
+                <div className="bg-white rounded p-4" dangerouslySetInnerHTML={{ __html: previewEmail.renderedBody }} />
+              ) : (
+                <p className="text-gray-500 text-center py-8">저장된 본문 없음 (이 기능 추가 전에 보낸 이메일입니다)</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

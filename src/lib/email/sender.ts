@@ -43,13 +43,15 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
 
   const { subject, body } = renderTemplate(template, business)
 
-  // 7. 발송 기록 먼저 생성 (queued 상태)
+  // 7. 발송 기록 먼저 생성 (queued 상태) + 렌더링된 내용 저장
   const send = await prisma.emailSend.create({
     data: {
       businessId,
       templateId,
       step,
       status: 'queued',
+      renderedSubject: subject,
+      renderedBody: body,
     },
   })
 

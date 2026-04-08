@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
   const [sends, total] = await Promise.all([
     prisma.emailSend.findMany({
       where,
-      include: { business: { select: { name: true, email: true, category: true } }, template: { select: { name: true } } },
+      include: {
+        business: { select: { name: true, email: true, category: true } },
+        template: { select: { name: true } },
+      },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,

@@ -70,6 +70,8 @@ model EmailSend {
   templateId     String?
   step           Int       // 몇 차 발송 (1~4)
   brevoMessageId String?   // Brevo 메시지 ID
+  renderedSubject String?  // 실제 발송된 제목 (변수 치환 완료)
+  renderedBody    String?  // 실제 발송된 HTML 본문 (변수 치환 완료)
   status         String    @default("queued") // queued/sent/delivered/bounced
   sentAt         DateTime?
   deliveredAt    DateTime?
