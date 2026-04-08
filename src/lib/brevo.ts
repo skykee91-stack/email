@@ -50,7 +50,10 @@ export const brevo = {
     const res = await fetch(`${BREVO_API_URL}/smtp/statistics/events?${query}`, {
       headers: getHeaders(),
     })
-    if (!res.ok) throw new Error('Brevo 이벤트 조회 실패')
+    if (!res.ok) {
+      const errBody = await res.text()
+      throw new Error(`Brevo 이벤트 조회 실패 (${res.status}): ${errBody}`)
+    }
     return res.json()
   },
 
