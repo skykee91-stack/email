@@ -121,6 +121,27 @@ export async function POST(req: NextRequest) {
 
     // 환경변수로 전달 (환경변수는 유니코드 지원)
     // 한글을 hex로 인코딩해서 환경변수로 전달 (Windows 한글 깨짐 방지)
+    // DB에 있는 기존 업체 placeId를 히스토리에 합치기 (중복 수집 방지)
+    try {
+      const historyPath = path.join(scraperPath, 'collected_history.json').replace(/\\/g, '/')
+      let existingIds: string[] = []
+      if (fs.existsSync(historyPath)) {
+        try {
+          const h = JSON.parse(fs.readFileSync(historyPath, 'utf-8'))
+          existingIds = h.collected_ids || []
+        } catch {}
+      }
+      const dbPlaceIds = await prisma.business.findMany({
+        where: { placeId: { not: null } },
+        select: { placeId: true },
+      })
+      const mergedIds = [...new Set([...existingIds, ...dbPlaceIds.map(b => b.placeId!)])]
+      fs.writeFileSync(historyPath, JSON.stringify({ collected_ids: mergedIds }), 'utf-8')
+      console.log(`[히스토리 동기화] 기존 ${existingIds.length}개 + DB ${dbPlaceIds.length}개 → ${mergedIds.length}개`)
+    } catch (e) {
+      console.error('히스토리 동기화 실패:', e)
+    }
+
     const configHex = Buffer.from(JSON.stringify({ category: searchTerm, region: region || '', target, keywords: keywords || [] }), 'utf-8').toString('hex')
 
     const child = exec(`python -u "${runnerPath}"`, {
