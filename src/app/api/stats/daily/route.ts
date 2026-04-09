@@ -7,14 +7,18 @@ export async function GET(req: NextRequest) {
 
   const dailyStats = []
 
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    const end = new Date(start)
-    end.setDate(end.getDate() + 1)
+  // 한국 시간(KST, UTC+9) 기준으로 날짜 계산
+  const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
 
-    const range = { gte: start, lt: end }
+  for (let i = days - 1; i >= 0; i--) {
+    const dateKST = new Date(nowKST)
+    dateKST.setDate(dateKST.getDate() - i)
+    // KST 기준 하루의 시작/끝을 UTC로 변환
+    const dateStr = dateKST.toISOString().split('T')[0]
+    const start = new Date(`${dateStr}T00:00:00+09:00`)
+    const end = new Date(`${dateStr}T23:59:59+09:00`)
+
+    const range = { gte: start, lte: end }
 
     const [sent, opened, clicked] = await Promise.all([
       prisma.emailSend.count({ where: { sentAt: range } }),
@@ -23,7 +27,7 @@ export async function GET(req: NextRequest) {
     ])
 
     dailyStats.push({
-      date: start.toISOString().split('T')[0],
+      date: dateStr,
       sent,
       opened,
       clicked,

@@ -7,8 +7,14 @@ export default function StatsPage() {
   const [days, setDays] = useState(30);
 
   useEffect(() => {
-    fetch(`/api/stats/funnel?days=${days}`).then(r => r.json()).then(setFunnel);
-    fetch(`/api/stats/daily?days=14`).then(r => r.json()).then(d => setDaily(d.daily || []));
+    const loadStats = () => {
+      fetch(`/api/stats/funnel?days=${days}`).then(r => r.json()).then(setFunnel);
+      fetch(`/api/stats/daily?days=14`).then(r => r.json()).then(d => setDaily(d.daily || []));
+    };
+    loadStats();
+    // 30초마다 자동 새로고침
+    const interval = setInterval(loadStats, 30000);
+    return () => clearInterval(interval);
   }, [days]);
 
   return (
