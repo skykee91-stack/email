@@ -120,16 +120,16 @@ export default function ScrapePage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [scraping]);
 
-  // 수집 시작
+  // 수집 시작 (또는 대기열 추가)
   const startScrape = async () => {
     const query = searchMode === "custom" ? customQuery : category;
     if (!query) {
       setResult({ error: "검색어 또는 카테고리를 선택하세요" });
       return;
     }
-    setScraping(true);
+    const wasScraping = scraping; // 이미 수집 중이었는지
+    if (!wasScraping) setScraping(true);
     setResult(null);
-    setJob(null);
 
     // 키워드 파싱 (쉼표로 구분)
     const keywordList = keywords.split(",").map(k => k.trim()).filter(Boolean);
@@ -147,10 +147,14 @@ export default function ScrapePage() {
     const data = await res.json();
     if (!res.ok) {
       setResult({ error: data.error });
-      setScraping(false);
+      if (!wasScraping) setScraping(false);
     } else if (data.queued) {
       setResult({ message: data.message });
-      setScraping(false);
+      // 큐에 추가됐으면 기존 수집 진행 상태는 유지
+      // 큐 목록도 새로고침
+      fetch("/api/scrape/start").then(r => r.json()).then(d => {
+        if (d.queue) setQueue(d.queue);
+      });
     }
   };
 
@@ -277,9 +281,9 @@ export default function ScrapePage() {
             <option value={1000}>1000개</option>
           </select>
 
-          <button onClick={startScrape} disabled={scraping}
-            className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm font-semibold">
-            {scraping ? "수집 중..." : "수집 시작"}
+          <button onClick={startScrape}
+            className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-semibold">
+            {scraping ? "대기열 추가" : "수집 시작"}
           </button>
           {scraping && (
             <button onClick={async () => {
