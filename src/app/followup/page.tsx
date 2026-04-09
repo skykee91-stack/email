@@ -43,10 +43,7 @@ export default function FollowupPage() {
     const res = await fetch("/api/followup/auto", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dryRun,
-        profileId: selectedProfile || undefined,
-      }),
+      body: JSON.stringify({ dryRun }),
     });
     const data = await res.json();
     setResult(data);
@@ -124,17 +121,29 @@ export default function FollowupPage() {
               </p>
             ) : (
               <>
-                <div className="flex items-center gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">발신자 프로필</label>
-                    <select value={selectedProfile} onChange={e => setSelectedProfile(e.target.value)}
-                      className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
-                      <option value="">기본</option>
-                      {profiles.map(p => (
-                        <option key={p.id} value={p.id}>{p.serviceName} {p.isDefault ? "[기본]" : ""}</option>
+                {/* 카테고리별 대기 현황 */}
+                <div className="mb-4 space-y-2">
+                  {overview?.steps?.filter(s => s.pendingCount > 0).map(s => (
+                    <div key={s.step}>
+                      {(s as any).byCategory?.map((cat: any) => (
+                        <div key={cat.category} className="p-3 bg-gray-800/50 rounded-lg mb-2">
+                          <p className="text-white text-sm font-medium mb-1">
+                            {s.step}차 — {cat.category === 'default' ? '기본' : cat.category} ({cat.count}건)
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {cat.businessCategories?.map((bc: any) => (
+                              <span key={bc.name} className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">
+                                {bc.name} {bc.count}건
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            1차 발신 프로필에 맞는 {s.step}차 템플릿+발신자로 자동 발송됩니다
+                          </p>
+                        </div>
                       ))}
-                    </select>
-                  </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div className="flex gap-3">
@@ -159,10 +168,13 @@ export default function FollowupPage() {
               </h2>
               <p className="text-green-400 mb-4">{result.summary?.message}</p>
               <div className="space-y-3">
-                {result.steps?.map((s: any) => (
-                  <div key={s.step} className="p-3 bg-gray-800/50 rounded-lg">
+                {result.steps?.map((s: any, idx: number) => (
+                  <div key={idx} className="p-3 bg-gray-800/50 rounded-lg">
                     <div className="flex items-center justify-between">
-                      <span className="text-white font-medium">{s.step}차 팔로업</span>
+                      <span className="text-white font-medium">
+                        {s.step}차 — {s.category === 'default' ? '기본' : s.category || ''}
+                        {s.templateName && <span className="text-gray-500 text-xs ml-2">({s.templateName})</span>}
+                      </span>
                       <span className="text-sm text-gray-400">
                         대상 {s.candidates}명
                         {!result.dryRun && ` / 발송 ${s.sent}건`}
@@ -171,7 +183,7 @@ export default function FollowupPage() {
                     {result.dryRun && s.targets?.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {s.targets.slice(0, 5).map((t: any, i: number) => (
-                          <p key={i} className="text-xs text-gray-500">{t.name} ({t.email})</p>
+                          <p key={i} className="text-xs text-gray-500">{t.name} ({t.email}) {t.businessCategory && `[${t.businessCategory}]`}</p>
                         ))}
                         {s.targets.length > 5 && (
                           <p className="text-xs text-gray-600">... 외 {s.targets.length - 5}명</p>
