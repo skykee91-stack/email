@@ -94,7 +94,7 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {daily.map((d, i) => (
+                {[...daily].reverse().map((d, i) => (
                   <tr key={i} className="border-b border-gray-800">
                     <td className="px-3 py-2 text-gray-300">{d.date}</td>
                     <td className="px-3 py-2 text-right text-white">{d.sent}</td>
