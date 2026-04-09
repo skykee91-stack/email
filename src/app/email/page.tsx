@@ -23,6 +23,7 @@ export default function EmailPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [previewEmail, setPreviewEmail] = useState<any>(null); // 보낸 이메일 미리보기
+  const [pending, setPending] = useState<any>(null); // 미발송 알림
 
   useEffect(() => {
     fetch("/api/templates").then(r => r.json()).then(d => setTemplates(d.templates || []));
@@ -35,6 +36,7 @@ export default function EmailPage() {
       if (d.categories) setCategories(d.categories);
       if (d.regions) setRegions(d.regions);
     });
+    fetch("/api/email/pending").then(r => r.json()).then(d => setPending(d)).catch(() => {});
     fetchSends();
   }, []);
 
@@ -105,6 +107,36 @@ export default function EmailPage() {
         <h1 className="text-2xl font-bold text-white">이메일 발송</h1>
         <p className="text-gray-400 mt-1">영업 이메일 발송 관리</p>
       </div>
+
+      {/* 미발송 알림 */}
+      {pending && (pending.unsent1?.total > 0 || pending.pending2?.total > 0) && (
+        <div className="mb-4 space-y-2">
+          {pending.unsent1?.total > 0 && (
+            <div className="p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+              <p className="text-yellow-400 font-semibold text-sm mb-2">1차 미발송 업체 {pending.unsent1.total}개</p>
+              <div className="flex flex-wrap gap-2">
+                {pending.unsent1.byCategory?.map((c: { category: string; count: number }) => (
+                  <span key={c.category} className="px-2 py-1 bg-yellow-900/30 text-yellow-300 text-xs rounded">
+                    {c.category} {c.count}개
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {pending.pending2?.total > 0 && (
+            <div className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
+              <p className="text-blue-400 font-semibold text-sm mb-2">2차 팔로업 대기 {pending.pending2.total}개 (3일 경과)</p>
+              <div className="flex flex-wrap gap-2">
+                {pending.pending2.byCategory?.map((c: { category: string; count: number }) => (
+                  <span key={c.category} className="px-2 py-1 bg-blue-900/30 text-blue-300 text-xs rounded">
+                    {c.category} {c.count}개
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 발송 설정 */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
