@@ -544,6 +544,45 @@ export async function GET() {
   })
 }
 
+// PUT: 수집 중지 + 히스토리 리셋
+export async function PUT(req: NextRequest) {
+  const body = await req.json().catch(() => ({}))
+  const action = body.action // 'stop' | 'resetHistory'
+
+  if (action === 'stop') {
+    // 수집 중지: Python 프로세스 kill
+    if (currentJob?.pid) {
+      try {
+        process.kill(currentJob.pid)
+      } catch {}
+    }
+    if (currentJob?.id) {
+      try {
+        await prisma.scrapeJob.update({
+          where: { id: currentJob.id },
+          data: { status: 'failed', errorMessage: '사용자가 중지함', finishedAt: new Date() },
+        })
+      } catch {}
+    }
+    currentJob = null
+    return NextResponse.json({ ok: true, message: '수집 중지됨' })
+  }
+
+  if (action === 'resetHistory') {
+    // 히스토리 파일 리셋
+    const scraperPath = process.env.SCRAPER_PATH || 'C:/Users/a/naver_place_scraper'
+    const historyPath = path.join(scraperPath, 'collected_history.json').replace(/\\/g, '/')
+    try {
+      fs.writeFileSync(historyPath, JSON.stringify({ collected_ids: [] }), 'utf-8')
+      return NextResponse.json({ ok: true, message: '히스토리 리셋됨' })
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 })
+    }
+  }
+
+  return NextResponse.json({ error: 'action 필요 (stop | resetHistory)' }, { status: 400 })
+}
+
 // DELETE: 대기열 비우기
 export async function DELETE() {
   const count = scrapeQueue.length

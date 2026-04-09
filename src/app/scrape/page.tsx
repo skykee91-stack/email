@@ -281,6 +281,22 @@ export default function ScrapePage() {
             className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm font-semibold">
             {scraping ? "수집 중..." : "수집 시작"}
           </button>
+          {scraping && (
+            <button onClick={async () => {
+              await fetch("/api/scrape/start", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) });
+              setScraping(false); setJob(null); setResult({ message: "수집 중지됨" });
+            }} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
+              중지
+            </button>
+          )}
+          <button onClick={async () => {
+            if (!confirm("히스토리를 리셋하면 이전에 수집한 업체도 다시 수집됩니다. 계속할까요?")) return;
+            const res = await fetch("/api/scrape/start", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "resetHistory" }) });
+            const data = await res.json();
+            setResult({ message: data.message || data.error });
+          }} className="px-4 py-2 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 text-sm">
+            히스토리 리셋
+          </button>
         </div>
 
         {/* 관련 키워드 (네이버 API 자동 조회) */}
