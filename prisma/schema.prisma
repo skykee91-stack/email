@@ -171,6 +171,39 @@ model ScrapeJob {
   scheduled      Boolean   @default(false)
   cronExpression String?
   createdAt      DateTime  @default(now())
+
+  progress ScrapeProgress?
+  skipLogs ScrapeSkipLog[]
+}
+
+// 수집 진행 상황 추적 (실시간)
+model ScrapeProgress {
+  id              String   @id @default(uuid())
+  jobId           String   @unique
+  currentKeyword  String?
+  currentRegion   String?
+  currentBusiness String?
+  totalProcessed  Int      @default(0)
+  totalSkipped    Int      @default(0)
+  lastUpdate      DateTime @default(now())
+
+  job ScrapeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+// 수집 스킵 로그 (멈춤/오류로 건너뛴 업체)
+model ScrapeSkipLog {
+  id           String   @id @default(uuid())
+  jobId        String
+  region       String
+  keyword      String
+  businessName String?
+  reason       String   // timeout / frame_detached / iframe_failed / other
+  skippedAt    DateTime @default(now())
+
+  job ScrapeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([skippedAt])
 }
 
 // ──────────────────────────────────────

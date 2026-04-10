@@ -39,6 +39,7 @@ export default function ScrapePage() {
   const [keywordDetails, setKeywordDetails] = useState<{ keyword: string; totalSearches: number; competition: string }[]>([]);
   const [scraping, setScraping] = useState(false);
   const [job, setJob] = useState<any>(null);
+  const [progress, setProgress] = useState<any>(null); // 진행 상황 + 스킵 로그
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const keywordTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -105,6 +106,16 @@ export default function ScrapePage() {
           const data = await res.json();
           setJob(data.job);
           if (data.queue) setQueue(data.queue);
+
+          // 진행 상황도 함께 폴링
+          if (data.job?.id) {
+            try {
+              const pres = await fetch(`/api/scrape/progress?jobId=${data.job.id}`);
+              const pdata = await pres.json();
+              setProgress(pdata);
+            } catch {}
+          }
+
           if (data.job?.status === "done" || data.job?.status === "failed") {
             setScraping(false);
             if (pollRef.current) clearInterval(pollRef.current);
@@ -343,7 +354,28 @@ export default function ScrapePage() {
               <div className="bg-blue-600 rounded-full h-2 transition-all"
                 style={{ width: `${Math.min((job.found / job.target) * 100, 100)}%` }} />
             </div>
-            <p className="text-xs text-gray-500 mt-2">업체 {job.found}개 확보 중... (이메일 없는 업체 포함)</p>
+
+            {/* 상세 진행 상황 */}
+            {progress?.progress && (
+              <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400 space-y-1">
+                <div>현재 키워드: <span className="text-white">{progress.progress.currentKeyword || "-"}</span></div>
+                <div>현재 지역: <span className="text-white">{progress.progress.currentRegion || "-"}</span></div>
+                <div>처리 중인 업체: <span className="text-white">{progress.progress.currentBusiness || "-"}</span></div>
+                <div>마지막 업데이트: <span className="text-white">
+                  {progress.progress.lastUpdate ? `${Math.round((Date.now() - new Date(progress.progress.lastUpdate).getTime()) / 1000)}초 전` : "-"}
+                </span></div>
+                {progress.totalSkipped > 0 && (
+                  <div className="text-yellow-400">
+                    스킵된 업체: {progress.totalSkipped}개
+                    {Object.keys(progress.skipSummary || {}).length > 0 && (
+                      <span className="text-gray-500 ml-2">
+                        ({Object.entries(progress.skipSummary).map(([r, c]: any) => `${r}: ${c}`).join(", ")})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

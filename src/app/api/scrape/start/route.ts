@@ -147,7 +147,13 @@ export async function POST(req: NextRequest) {
     const child = exec(`python -u "${runnerPath}"`, {
       maxBuffer: 10 * 1024 * 1024,
       cwd: scraperPath,
-      env: { ...process.env, SCRAPE_CONFIG_HEX: configHex },
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        SCRAPE_CONFIG_HEX: configHex,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
+      },
     })
 
     currentJob = {
@@ -236,22 +242,63 @@ export async function POST(req: NextRequest) {
     })
 
     child.stdout?.on('data', (data: string) => {
-      try {
-        const lines = data.trim().split('\n')
-        for (const line of lines) {
+      const lines = data.toString().trim().split('\n')
+      for (const line of lines) {
+        if (!line) continue
+        try {
           const msg = JSON.parse(line)
+
+          // 1. 새 업체 발견
           if (msg.found && currentJob) {
             currentJob.found = msg.found
-            // 10건마다 중간 저장된 파일을 DB에 업로드
             if (msg.found % 10 === 0) {
               saveResultsToDB(false)
             }
           }
+
+          // 2. 진행 상황 (현재 키워드/지역/업체)
+          if (msg.progress) {
+            prisma.scrapeProgress.upsert({
+              where: { jobId: job.id },
+              create: {
+                jobId: job.id,
+                currentKeyword: msg.progress.keyword || null,
+                currentRegion: msg.progress.region || null,
+                currentBusiness: msg.progress.business || null,
+                lastUpdate: new Date(),
+              },
+              update: {
+                currentKeyword: msg.progress.keyword || null,
+                currentRegion: msg.progress.region || null,
+                currentBusiness: msg.progress.business || null,
+                lastUpdate: new Date(),
+              },
+            }).catch(() => {})
+          }
+
+          // 3. 스킵 로그
+          if (msg.skipped) {
+            prisma.scrapeSkipLog.create({
+              data: {
+                jobId: job.id,
+                region: msg.skipped.region || '',
+                keyword: msg.skipped.keyword || '',
+                businessName: msg.skipped.business || null,
+                reason: msg.skipped.reason || 'unknown',
+              },
+            }).catch(() => {})
+            // ScrapeProgress의 totalSkipped 증가
+            prisma.scrapeProgress.update({
+              where: { jobId: job.id },
+              data: { totalSkipped: { increment: 1 }, lastUpdate: new Date() },
+            }).catch(() => {})
+          }
+
           if (msg.done && currentJob) {
             currentJob.status = 'done'
           }
-        }
-      } catch {}
+        } catch {}
+      }
     })
 
     child.on('exit', async (code) => {
@@ -408,7 +455,13 @@ async function processNextInQueue() {
     const child = exec(`python -u "${runnerPath}"`, {
       maxBuffer: 10 * 1024 * 1024,
       cwd: scraperPath,
-      env: { ...process.env, SCRAPE_CONFIG_HEX: configHex },
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        SCRAPE_CONFIG_HEX: configHex,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
+      },
     })
 
     currentJob = {
