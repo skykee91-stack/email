@@ -47,15 +47,20 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
   //   return { error: '야간 발송 제한 (21시~08시)', skipped: true }
   // }
 
-  // 5. 중복 발송 체크
-  const alreadySent = await prisma.emailSend.findFirst({
-    where: { businessId, step, status: { in: ['sent', 'delivered', 'queued'] } },
-  })
-  if (alreadySent) return { error: `${step}차 이미 발송됨`, skipped: true }
-
   // 6. 템플릿 렌더링
   const template = await prisma.emailTemplate.findUnique({ where: { id: templateId } })
   if (!template) return { error: '템플릿 없음', skipped: true }
+
+  // 5. 중복 발송 체크 (같은 브랜드로 이미 보낸 경우만 제외)
+  const alreadySent = await prisma.emailSend.findFirst({
+    where: {
+      businessId,
+      step,
+      status: { in: ['sent', 'delivered', 'queued'] },
+      ...(template.category ? { template: { category: template.category } } : {}),
+    },
+  })
+  if (alreadySent) return { error: `${step}차 이미 발송됨 (${template.category || '기본'})`, skipped: true }
 
   const { subject, body } = renderTemplate(template, business)
 
@@ -141,8 +146,28 @@ export async function sendBulkEmails(params: {
   if (params.filters.category) where.category = params.filters.category
   if (params.filters.region) where.region = { contains: params.filters.region }
 
-  // 이미 해당 step 보낸 업체 제외
-  where.emailSends = { none: { step: params.step, status: { in: ['sent', 'delivered', 'queued'] } } }
+  // 선택한 템플릿의 브랜드(category) 확인
+  const selectedTemplate = await prisma.emailTemplate.findUnique({
+    where: { id: params.templateId },
+    select: { category: true },
+  })
+  const brandCategory = selectedTemplate?.category
+
+  // 이미 "해당 브랜드"로 step 보낸 업체만 제외
+  // (다른 브랜드로 보냈어도 이 브랜드로 안 보냈으면 대상 포함)
+  if (brandCategory) {
+    where.emailSends = {
+      none: {
+        step: params.step,
+        status: { in: ['sent', 'delivered', 'queued'] },
+        template: { category: brandCategory },
+      },
+    }
+  } else {
+    // 브랜드 없는 템플릿이면 기존 로직 (전체 step 기준)
+    where.emailSends = { none: { step: params.step, status: { in: ['sent', 'delivered', 'queued'] } } }
+  }
+
   // 수신거부 업체 제외
   where.unsubscribe = null
 
