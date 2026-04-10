@@ -1,9 +1,26 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
+// 브랜드별 타겟 업종 키워드 (업체 카테고리에 이 단어가 포함되면 해당 브랜드 타겟)
+// 셀포는 전 업종이라 빈 배열 (= 필터 안 함)
+const BRAND_TARGET_KEYWORDS: Record<string, string[]> = {
+  '셀포': [], // 전 업종 OK
+  '피원코팅즈': [
+    '자동차', '카', '차량', '랩핑', '바이크', '자전거', '오토바이',
+    '판금', '도장', '튜닝', '디테일', 'PPF', '광택', '폴리싱', '세차', '모터스',
+  ],
+}
+
+function isTargetCategory(brand: string, category: string | null): boolean {
+  const keywords = BRAND_TARGET_KEYWORDS[brand]
+  if (!keywords || keywords.length === 0) return true // 전 업종 타겟
+  if (!category) return false
+  return keywords.some(k => category.toLowerCase().includes(k.toLowerCase()))
+}
+
 // 템플릿 브랜드(카테고리)별 미발송 업체 현황
-// 셀포: 전 업종 타겟 (모든 업체 대상, 단 셀포로 1차 안 보낸 애들)
-// 피원코팅즈: 자동차/랩핑/바이크 관련 업종만 (단 피원으로 1차 안 보낸 애들)
+// 셀포: 전 업종 타겟
+// 피원코팅즈: 자동차/랩핑/바이크 관련 업종만
 export async function GET() {
   try {
     // 모든 활성 템플릿 카테고리 조회
@@ -32,16 +49,19 @@ export async function GET() {
         select: { category: true },
       })
 
+      // 브랜드 타겟 업종만 필터링
+      const targetUnsent = unsent.filter(b => isTargetCategory(brand, b.category))
+
       // 업종별 그룹핑
       const byCategory: Record<string, number> = {}
-      for (const b of unsent) {
+      for (const b of targetUnsent) {
         const cat = b.category || '미분류'
         byCategory[cat] = (byCategory[cat] || 0) + 1
       }
 
       unsent1ByBrand.push({
         brand,
-        total: unsent.length,
+        total: targetUnsent.length,
         byCategory: Object.entries(byCategory)
           .map(([category, count]) => ({ category, count }))
           .sort((a, b) => b.count - a.count),
@@ -75,15 +95,18 @@ export async function GET() {
         include: { business: { select: { category: true } } },
       })
 
+      // 브랜드 타겟 업종만 필터링
+      const targetPending = pending.filter(s => isTargetCategory(brand, s.business.category))
+
       const byCategory: Record<string, number> = {}
-      for (const s of pending) {
+      for (const s of targetPending) {
         const cat = s.business.category || '미분류'
         byCategory[cat] = (byCategory[cat] || 0) + 1
       }
 
       pending2ByBrand.push({
         brand,
-        total: pending.length,
+        total: targetPending.length,
         byCategory: Object.entries(byCategory)
           .map(([category, count]) => ({ category, count }))
           .sort((a, b) => b.count - a.count),

@@ -6,6 +6,23 @@ import { brevo } from '@/lib/brevo'
 import { renderTemplate } from '@/lib/email/template'
 import { verifyEmail } from '@/lib/email/verify'
 
+// 브랜드별 타겟 업종 키워드 (pending API와 동일)
+const BRAND_TARGET_KEYWORDS: Record<string, string[]> = {
+  '셀포': [],
+  '피원코팅즈': [
+    '자동차', '카', '차량', '랩핑', '바이크', '자전거', '오토바이',
+    '판금', '도장', '튜닝', '디테일', 'PPF', '광택', '폴리싱', '세차', '모터스',
+  ],
+}
+
+function isTargetCategory(brand: string | null, category: string | null): boolean {
+  if (!brand) return true
+  const keywords = BRAND_TARGET_KEYWORDS[brand]
+  if (!keywords || keywords.length === 0) return true
+  if (!category) return false
+  return keywords.some(k => category.toLowerCase().includes(k.toLowerCase()))
+}
+
 interface SendEmailParams {
   businessId: string
   templateId: string
@@ -171,11 +188,18 @@ export async function sendBulkEmails(params: {
   // 수신거부 업체 제외
   where.unsubscribe = null
 
-  const businesses = await prisma.business.findMany({
+  // 브랜드 필터링을 위해 더 많이 가져와서 필터 후 자른다
+  const fetchLimit = brandCategory ? params.maxCount * 5 : params.maxCount
+  const allBusinesses = await prisma.business.findMany({
     where,
-    take: params.maxCount,
+    take: fetchLimit,
     orderBy: { createdAt: 'asc' },
   })
+
+  // 브랜드 타겟 업종만 필터링
+  const businesses = allBusinesses
+    .filter(b => isTargetCategory(brandCategory || null, b.category))
+    .slice(0, params.maxCount)
 
   // A/B 테스트: 대상을 랜덤으로 절반씩 나누기
   const isABTest = !!params.templateIdB
