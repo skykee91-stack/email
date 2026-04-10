@@ -155,6 +155,7 @@ export async function sendBulkEmails(params: {
   maxCount: number
   dryRun?: boolean
   profileId?: string
+  delaySeconds?: number  // 이메일 간 딜레이 (초). 기본 5초
 }) {
   const where: Record<string, unknown> = {
     status: 'active',
@@ -240,8 +241,12 @@ export async function sendBulkEmails(params: {
     ...(isABTest ? { abTest: true, groupA: { sent: 0, skipped: 0 }, groupB: { sent: 0, skipped: 0 } } : {}),
   }
 
+  // 발송 딜레이: 기본 5초 (시간당 약 720건, 스팸 필터 회피)
+  const delayMs = (params.delaySeconds ?? 5) * 1000
+
   // 그룹 A 발송
-  for (const biz of groupA) {
+  for (let i = 0; i < groupA.length; i++) {
+    const biz = groupA[i]
     const result = await sendEmail({
       businessId: biz.id,
       templateId: params.templateId,
@@ -257,10 +262,16 @@ export async function sendBulkEmails(params: {
       if (isABTest) results.groupA!.skipped++
       if (result.error) results.errors.push(`${biz.name}: ${result.error}`)
     }
+
+    // 마지막 건은 딜레이 안 함
+    if (i < groupA.length - 1 && delayMs > 0) {
+      await new Promise(r => setTimeout(r, delayMs))
+    }
   }
 
   // 그룹 B 발송 (A/B 테스트일 때만)
-  for (const biz of groupB) {
+  for (let i = 0; i < groupB.length; i++) {
+    const biz = groupB[i]
     const result = await sendEmail({
       businessId: biz.id,
       templateId: params.templateIdB!,
@@ -275,6 +286,10 @@ export async function sendBulkEmails(params: {
       results.skipped++
       if (isABTest) results.groupB!.skipped++
       if (result.error) results.errors.push(`${biz.name}: ${result.error}`)
+    }
+
+    if (i < groupB.length - 1 && delayMs > 0) {
+      await new Promise(r => setTimeout(r, delayMs))
     }
   }
 

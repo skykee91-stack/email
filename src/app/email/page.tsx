@@ -14,6 +14,7 @@ export default function EmailPage() {
   const [selectedProfile, setSelectedProfile] = useState("");
   const [step, setStep] = useState(1);
   const [maxCount, setMaxCount] = useState(100);
+  const [delaySeconds, setDelaySeconds] = useState(5); // 발송 간격(초)
   const [category, setCategory] = useState("");
   const [region, setRegion] = useState("");
   const [sending, setSending] = useState(false);
@@ -87,6 +88,7 @@ export default function EmailPage() {
       body: JSON.stringify({
         templateId: selectedTemplate, step, maxCount, dryRun: false,
         profileId: selectedProfile || undefined,
+        delaySeconds,
         ...(abTestMode && selectedTemplateB ? { templateIdB: selectedTemplateB } : {}),
         filters: { ...(category && { category }), ...(region && { region }) },
       }),
@@ -245,6 +247,20 @@ export default function EmailPage() {
               <option value={100}>100개</option>
               <option value={300}>300개</option>
               <option value={500}>500개</option>
+            </select>
+          </div>
+
+          {/* 발송 간격 (스팸 회피) */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">발송 간격 (스팸 회피)</label>
+            <select value={delaySeconds} onChange={e => setDelaySeconds(Number(e.target.value))}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+              <option value={0}>없음 (한번에)</option>
+              <option value={3}>3초 (시간당 1200건)</option>
+              <option value={5}>5초 (시간당 720건) 권장</option>
+              <option value={10}>10초 (시간당 360건)</option>
+              <option value={20}>20초 (시간당 180건) 안전</option>
+              <option value={30}>30초 (시간당 120건) 매우 안전</option>
             </select>
           </div>
         </div>
