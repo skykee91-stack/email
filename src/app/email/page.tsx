@@ -108,33 +108,43 @@ export default function EmailPage() {
         <p className="text-gray-400 mt-1">영업 이메일 발송 관리</p>
       </div>
 
-      {/* 미발송 알림 */}
+      {/* 미발송 알림 (브랜드별) */}
       {pending && (pending.unsent1?.total > 0 || pending.pending2?.total > 0) && (
-        <div className="mb-4 space-y-2">
-          {pending.unsent1?.total > 0 && (
-            <div className="p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
-              <p className="text-yellow-400 font-semibold text-sm mb-2">1차 미발송 업체 {pending.unsent1.total}개</p>
+        <div className="mb-4 space-y-3">
+          {/* 브랜드별 1차 미발송 */}
+          {pending.unsent1?.byBrand?.filter((b: { total: number }) => b.total > 0).map((brand: { brand: string; total: number; byCategory: { category: string; count: number }[] }) => (
+            <div key={`unsent-${brand.brand}`} className="p-4 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+              <p className="text-yellow-400 font-semibold text-sm mb-2">
+                [{brand.brand}] 1차 미발송 {brand.total}개
+              </p>
               <div className="flex flex-wrap gap-2">
-                {pending.unsent1.byCategory?.map((c: { category: string; count: number }) => (
+                {brand.byCategory?.slice(0, 15).map(c => (
                   <span key={c.category} className="px-2 py-1 bg-yellow-900/30 text-yellow-300 text-xs rounded">
                     {c.category} {c.count}개
                   </span>
                 ))}
+                {brand.byCategory?.length > 15 && (
+                  <span className="px-2 py-1 text-yellow-500 text-xs">... 외 {brand.byCategory.length - 15}개 업종</span>
+                )}
               </div>
             </div>
-          )}
-          {pending.pending2?.total > 0 && (
-            <div className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-              <p className="text-blue-400 font-semibold text-sm mb-2">2차 팔로업 대기 {pending.pending2.total}개 (3일 경과)</p>
+          ))}
+
+          {/* 브랜드별 2차 팔로업 대기 */}
+          {pending.pending2?.byBrand?.filter((b: { total: number }) => b.total > 0).map((brand: { brand: string; total: number; byCategory: { category: string; count: number }[] }) => (
+            <div key={`pending2-${brand.brand}`} className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
+              <p className="text-blue-400 font-semibold text-sm mb-2">
+                [{brand.brand}] 2차 팔로업 대기 {brand.total}개 (3일 경과)
+              </p>
               <div className="flex flex-wrap gap-2">
-                {pending.pending2.byCategory?.map((c: { category: string; count: number }) => (
+                {brand.byCategory?.slice(0, 15).map(c => (
                   <span key={c.category} className="px-2 py-1 bg-blue-900/30 text-blue-300 text-xs rounded">
                     {c.category} {c.count}개
                   </span>
                 ))}
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
 
