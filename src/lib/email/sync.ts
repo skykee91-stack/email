@@ -43,7 +43,14 @@ export async function syncBrevoEvents() {
   syncing = true
 
   try {
-    const stats = { opened: 0, clicked: 0, bounced: 0, notFound: 0 }
+    const stats = { delivered: 0, opened: 0, clicked: 0, bounced: 0, notFound: 0 }
+
+    // 도달 이벤트 동기화
+    const deliveredData = await brevo.getEvents({ limit: 500, event: 'delivered' })
+    for (const event of deliveredData.events || []) {
+      const updated = await processEvent(event, 'delivered')
+      if (updated) stats.delivered++
+    }
 
     // 열람 이벤트 동기화
     const openData = await brevo.getEvents({ limit: 500, event: 'opened' })
@@ -78,7 +85,7 @@ export async function syncBrevoEvents() {
   }
 }
 
-async function processEvent(event: { messageId?: string; 'message-id'?: string; date?: string; email?: string }, type: 'opened' | 'click' | 'bounce'): Promise<boolean> {
+async function processEvent(event: { messageId?: string; 'message-id'?: string; date?: string; email?: string }, type: 'delivered' | 'opened' | 'click' | 'bounce'): Promise<boolean> {
   const messageId = event.messageId || event['message-id']
   if (!messageId) return false
 
@@ -86,7 +93,15 @@ async function processEvent(event: { messageId?: string; 'message-id'?: string; 
   if (!send) return false
 
   try {
-    if (type === 'opened') {
+    if (type === 'delivered') {
+      if (send.status !== 'delivered') {
+        await prisma.emailSend.update({
+          where: { id: send.id },
+          data: { status: 'delivered', deliveredAt: send.deliveredAt || new Date(event.date || Date.now()) },
+        })
+        return true
+      }
+    } else if (type === 'opened') {
       // 이미 열람 기록이 있으면 카운트만 증가할 필요 없음 (Brevo가 정확한 카운트 제공)
       if (send.openCount === 0) {
         await prisma.emailSend.update({
