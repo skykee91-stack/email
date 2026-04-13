@@ -25,6 +25,7 @@ export default function EmailPage() {
   const [regions, setRegions] = useState<string[]>([]);
   const [previewEmail, setPreviewEmail] = useState<any>(null); // 보낸 이메일 미리보기
   const [pending, setPending] = useState<any>(null); // 미발송 알림
+  const [sendStatus, setSendStatus] = useState<any>(null); // 백그라운드 발송 상태
 
   useEffect(() => {
     fetch("/api/templates").then(r => r.json()).then(d => setTemplates(d.templates || []));
@@ -38,7 +39,17 @@ export default function EmailPage() {
       if (d.regions) setRegions(d.regions);
     });
     fetch("/api/email/pending").then(r => r.json()).then(d => setPending(d)).catch(() => {});
+    fetch("/api/email/send").then(r => r.json()).then(d => setSendStatus(d)).catch(() => {});
     fetchSends();
+  }, []);
+
+  // 발송 상태 10초마다 폴링
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch("/api/email/send").then(r => r.json()).then(d => setSendStatus(d)).catch(() => {});
+      fetch("/api/email/pending").then(r => r.json()).then(d => setPending(d)).catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchSends = () => {
@@ -82,6 +93,7 @@ export default function EmailPage() {
     if (!confirm(`${previewTargets.length || maxCount}개 업체에 실제 이메일을 보냅니다. 계속하시겠습니까?`)) return;
 
     setSending(true); setResult(null);
+    const tplName = templates.find(t => t.id === selectedTemplate)?.name || selectedTemplate;
     const res = await fetch("/api/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -89,6 +101,7 @@ export default function EmailPage() {
         templateId: selectedTemplate, step, maxCount, dryRun: false,
         profileId: selectedProfile || undefined,
         delaySeconds,
+        _templateName: tplName,
         ...(abTestMode && selectedTemplateB ? { templateIdB: selectedTemplateB } : {}),
         filters: { ...(category && { category }), ...(region && { region }) },
       }),
@@ -98,6 +111,8 @@ export default function EmailPage() {
     setSending(false);
     setShowPreview(false);
     fetchSends();
+    // 발송 상태 즉시 갱신
+    fetch("/api/email/send").then(r => r.json()).then(d => setSendStatus(d)).catch(() => {});
   };
 
   const selectedTpl = templates.find(t => t.id === selectedTemplate);
@@ -109,6 +124,32 @@ export default function EmailPage() {
         <h1 className="text-2xl font-bold text-white">이메일 발송</h1>
         <p className="text-gray-400 mt-1">영업 이메일 발송 관리</p>
       </div>
+
+      {/* 백그라운드 발송 상태 */}
+      {sendStatus?.sendJob?.status === 'running' && (
+        <div className="mb-4 p-4 bg-green-900/20 border border-green-800/50 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-green-400 font-semibold text-sm animate-pulse">발송 진행 중</p>
+            <span className="text-green-300 text-xs">{sendStatus.sendJob.templateName}</span>
+          </div>
+          <p className="text-gray-400 text-xs">
+            업종: {sendStatus.sendJob.category} | 시작: {new Date(sendStatus.sendJob.startedAt).toLocaleTimeString("ko-KR")}
+          </p>
+          {sendStatus.queueLength > 0 && (
+            <p className="text-yellow-400 text-xs mt-2">
+              대기열: {sendStatus.queueLength}건 (현재 발송 완료 후 자동 시작)
+            </p>
+          )}
+        </div>
+      )}
+      {sendStatus?.sendJob?.status === 'done' && sendStatus.sendJob.finishedAt && (
+        <div className="mb-4 p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
+          <p className="text-blue-400 font-semibold text-sm">최근 발송 완료</p>
+          <p className="text-gray-400 text-xs">
+            {sendStatus.sendJob.templateName} | 발송 {sendStatus.sendJob.sent}건 / 스킵 {sendStatus.sendJob.skipped}건 | {new Date(sendStatus.sendJob.finishedAt).toLocaleTimeString("ko-KR")} 완료
+          </p>
+        </div>
+      )}
 
       {/* 미발송 알림 (브랜드별) */}
       {pending && (pending.unsent1?.total > 0 || pending.pending2?.total > 0) && (
@@ -303,7 +344,7 @@ export default function EmailPage() {
           </button>
           <button onClick={handleSend} disabled={sending || !selectedTemplate}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-semibold">
-            {sending ? "처리 중..." : "실제 발송"}
+            {sending ? "처리 중..." : sendStatus?.sendJob?.status === 'running' ? "대기열에 추가" : "실제 발송"}
           </button>
         </div>
       </div>
