@@ -247,6 +247,10 @@ export default function EmailPage() {
               <option value={100}>100개</option>
               <option value={300}>300개</option>
               <option value={500}>500개</option>
+              <option value={1000}>1000개</option>
+              <option value={2000}>2000개</option>
+              <option value={4000}>4000개</option>
+              <option value={5000}>5000개 (전체)</option>
             </select>
           </div>
 
