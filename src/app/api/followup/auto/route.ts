@@ -64,31 +64,38 @@ export async function POST(req: NextRequest) {
       const targetDate = new Date()
       targetDate.setDate(targetDate.getDate() - delayDays)
 
-      // 이전 단계 발송 기록 + 사용한 템플릿 카테고리 포함
-      const candidates = await prisma.emailSend.findMany({
-        where: {
-          step: prevStep,
-          status: { in: ['sent', 'delivered'] },
-          sentAt: { lte: targetDate },
-          repliedAt: null,
-          business: {
-            status: 'active',
-            emailSends: { none: { step } },
-          },
-        },
-        include: {
-          business: { select: { id: true, name: true, email: true, category: true } },
-          template: { select: { category: true, name: true } },
-        },
-        take: 200,
-      })
+      // 브랜드별로 후보 조회 (같은 브랜드 2차가 안 나간 업체만)
+      const allBrands = Object.keys(templateMap)
+      const groups: Record<string, Array<{ businessId: string; business: { id: string; name: string; email: string | null; category: string | null }; template: { category: string | null; name: string } | null }>> = {}
 
-      // 템플릿 카테고리별로 그룹핑
-      const groups: Record<string, typeof candidates> = {}
-      for (const c of candidates) {
-        const cat = c.template?.category || 'default'
-        if (!groups[cat]) groups[cat] = []
-        groups[cat].push(c)
+      for (const brand of allBrands) {
+        if (!templateMap[brand]?.[prevStep]) continue
+        const candidates = await prisma.emailSend.findMany({
+          where: {
+            step: prevStep,
+            status: { in: ['sent', 'delivered'] },
+            sentAt: { lte: targetDate },
+            repliedAt: null,
+            template: { category: brand },
+            business: {
+              status: 'active',
+              emailSends: {
+                none: {
+                  step,
+                  template: { category: brand },
+                },
+              },
+            },
+          },
+          include: {
+            business: { select: { id: true, name: true, email: true, category: true } },
+            template: { select: { category: true, name: true } },
+          },
+          take: 200,
+        })
+        if (candidates.length > 0) {
+          groups[brand] = candidates
+        }
       }
 
       for (const [cat, groupCandidates] of Object.entries(groups)) {
@@ -168,32 +175,47 @@ export async function GET() {
       const targetDate = new Date()
       targetDate.setDate(targetDate.getDate() - delayDays)
 
-      // 대상 후보를 가져와서 카테고리별로 분류
-      const candidates = await prisma.emailSend.findMany({
-        where: {
-          step: prevStep,
-          status: { in: ['sent', 'delivered'] },
-          sentAt: { lte: targetDate },
-          repliedAt: null,
-          business: {
-            status: 'active',
-            emailSends: { none: { step } },
-          },
-        },
-        include: {
-          template: { select: { category: true } },
-          business: { select: { category: true } },
-        },
+      // 브랜드별로 대상 후보 조회
+      const templates = await prisma.emailTemplate.findMany({
+        where: { isActive: true, category: { not: null } },
+        select: { category: true },
       })
+      const brands = Array.from(new Set(templates.map(t => t.category!))).filter(Boolean)
 
-      // 템플릿 카테고리별 그룹
       const byCategory: Record<string, { count: number; businessCategories: Record<string, number> }> = {}
-      for (const c of candidates) {
-        const cat = c.template?.category || 'default'
-        if (!byCategory[cat]) byCategory[cat] = { count: 0, businessCategories: {} }
-        byCategory[cat].count++
-        const bizCat = c.business.category || '미분류'
-        byCategory[cat].businessCategories[bizCat] = (byCategory[cat].businessCategories[bizCat] || 0) + 1
+      let totalCandidates = 0
+
+      for (const brand of brands) {
+        const candidates = await prisma.emailSend.findMany({
+          where: {
+            step: prevStep,
+            status: { in: ['sent', 'delivered'] },
+            sentAt: { lte: targetDate },
+            repliedAt: null,
+            template: { category: brand },
+            business: {
+              status: 'active',
+              emailSends: {
+                none: {
+                  step,
+                  template: { category: brand },
+                },
+              },
+            },
+          },
+          include: {
+            business: { select: { category: true } },
+          },
+        })
+
+        if (candidates.length > 0) {
+          byCategory[brand] = { count: candidates.length, businessCategories: {} }
+          totalCandidates += candidates.length
+          for (const c of candidates) {
+            const bizCat = c.business.category || '미분류'
+            byCategory[brand].businessCategories[bizCat] = (byCategory[brand].businessCategories[bizCat] || 0) + 1
+          }
+        }
       }
 
       const alreadySent = await prisma.emailSend.count({ where: { step } })
@@ -202,7 +224,7 @@ export async function GET() {
         step,
         label: `${step}차 팔로업`,
         delayDays,
-        pendingCount: candidates.length,
+        pendingCount: totalCandidates,
         sentCount: alreadySent,
         description: `1차 발송 ${delayDays}일 후 자동 발송`,
         byCategory: Object.entries(byCategory).map(([category, data]) => ({
