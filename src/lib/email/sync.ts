@@ -45,33 +45,48 @@ export async function syncBrevoEvents() {
   try {
     const stats = { delivered: 0, opened: 0, clicked: 0, bounced: 0, notFound: 0 }
 
+    // 페이징으로 이벤트 전부 가져오기 (Brevo API는 500건 제한)
+    async function fetchAllEvents(eventType: string) {
+      let offset = 0
+      const allEvents: Array<Record<string, unknown>> = []
+      while (true) {
+        const data = await brevo.getEvents({ limit: 500, offset, event: eventType })
+        const events = data.events || []
+        allEvents.push(...events)
+        if (events.length < 500) break // 마지막 페이지
+        offset += 500
+        if (offset > 5000) break // 안전 제한
+      }
+      return allEvents
+    }
+
     // 도달 이벤트 동기화
-    const deliveredData = await brevo.getEvents({ limit: 500, event: 'delivered' })
-    for (const event of deliveredData.events || []) {
-      const updated = await processEvent(event, 'delivered')
+    const deliveredEvents = await fetchAllEvents('delivered')
+    for (const event of deliveredEvents) {
+      const updated = await processEvent(event as Record<string, string>, 'delivered')
       if (updated) stats.delivered++
     }
 
     // 열람 이벤트 동기화
-    const openData = await brevo.getEvents({ limit: 500, event: 'opened' })
-    for (const event of openData.events || []) {
-      const updated = await processEvent(event, 'opened')
+    const openEvents = await fetchAllEvents('opened')
+    for (const event of openEvents) {
+      const updated = await processEvent(event as Record<string, string>, 'opened')
       if (updated) stats.opened++
       else stats.notFound++
     }
 
     // 클릭 이벤트 동기화
-    const clickData = await brevo.getEvents({ limit: 500, event: 'clicks' })
-    for (const event of clickData.events || []) {
-      const updated = await processEvent(event, 'click')
+    const clickEvents = await fetchAllEvents('clicks')
+    for (const event of clickEvents) {
+      const updated = await processEvent(event as Record<string, string>, 'click')
       if (updated) stats.clicked++
     }
 
     // 반송 이벤트 동기화
     for (const bounceType of ['hardBounces', 'softBounces']) {
-      const bounceData = await brevo.getEvents({ limit: 500, event: bounceType })
-      for (const event of bounceData.events || []) {
-        const updated = await processEvent(event, 'bounce')
+      const bounceEvents = await fetchAllEvents(bounceType)
+      for (const event of bounceEvents) {
+        const updated = await processEvent(event as Record<string, string>, 'bounce')
         if (updated) stats.bounced++
       }
     }
