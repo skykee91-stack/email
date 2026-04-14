@@ -1,8 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 interface Template { id: string; name: string; step: number; subject: string; }
 interface Profile { id: string; serviceName: string; senderName: string; senderEmail: string; isDefault: boolean; }
+
+// 템플릿 이름에서 브랜드/차수/라벨 파싱
+// 예: "피원코팅즈(랩핑/바이크/사이클용) - 1차 매출확장" → brand=피원코팅즈(랩핑/바이크/사이클용), step=1, label=매출확장
+function parseTemplate(name: string): { brand: string; step: number; label: string } {
+  const m = name.match(/^(.+?)\s*-\s*(\d+)차\s*(.*)$/);
+  if (m) return { brand: m[1].trim(), step: Number(m[2]), label: m[3].trim() };
+  return { brand: "기타", step: 0, label: name };
+}
 
 export default function EmailPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -10,6 +18,7 @@ export default function EmailPage() {
   const [sends, setSends] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [selectedTemplateB, setSelectedTemplateB] = useState(""); // A/B 테스트 B 변형
+  const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [abTestMode, setAbTestMode] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState("");
   const [step, setStep] = useState(1);
@@ -62,6 +71,34 @@ export default function EmailPage() {
     const tpl = templates.find(t => t.id === id);
     if (tpl) setStep(tpl.step);
   };
+
+  // 템플릿을 브랜드별로 그룹핑
+  const groupedTemplates = useMemo(() => {
+    const map: Record<string, Array<{ template: Template; step: number; label: string }>> = {};
+    for (const t of templates) {
+      const p = parseTemplate(t.name);
+      if (!map[p.brand]) map[p.brand] = [];
+      map[p.brand].push({ template: t, step: p.step, label: p.label });
+    }
+    for (const k of Object.keys(map)) map[k].sort((a, b) => a.step - b.step);
+    return map;
+  }, [templates]);
+
+  const brands = useMemo(() => Object.keys(groupedTemplates), [groupedTemplates]);
+
+  // 첫 브랜드 자동 선택 + 선택한 템플릿의 브랜드 따라가기
+  useEffect(() => {
+    if (brands.length === 0) return;
+    if (selectedTemplate) {
+      const tpl = templates.find(t => t.id === selectedTemplate);
+      if (tpl) {
+        const b = parseTemplate(tpl.name).brand;
+        if (b && brands.includes(b) && b !== selectedBrand) setSelectedBrand(b);
+        return;
+      }
+    }
+    if (!selectedBrand) setSelectedBrand(brands[0]);
+  }, [brands, selectedTemplate, templates, selectedBrand]);
 
   // 드라이런 (미리보기)
   const handlePreview = async () => {
@@ -147,9 +184,26 @@ export default function EmailPage() {
             {(sendStatus.sendJob.sent || 0) + (sendStatus.sendJob.skipped || 0)} / {sendStatus.sendJob.totalTargets} (발송 {sendStatus.sendJob.sent || 0}, 스킵 {sendStatus.sendJob.skipped || 0})
           </p>
           {sendStatus.queueLength > 0 && (
-            <p className="text-yellow-400 text-xs mt-2">
-              대기열: {sendStatus.queueLength}건 (현재 발송 완료 후 자동 시작)
-            </p>
+            <div className="mt-3 pt-3 border-t border-green-800/50">
+              <p className="text-yellow-400 text-xs mb-2">
+                대기열: {sendStatus.queueLength}건 (현재 발송 완료 후 자동 시작)
+              </p>
+              <div className="space-y-1">
+                {sendStatus.queue?.map((q: any) => (
+                  <div key={q.position} className="flex items-center gap-2 text-xs">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-yellow-900/40 text-yellow-300">
+                      {q.position}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${q.kind === 'followup' ? 'bg-purple-900/40 text-purple-300' : 'bg-blue-900/40 text-blue-300'}`}>
+                      {q.kind === 'followup' ? '팔로업' : '일반'}
+                    </span>
+                    <span className="text-gray-300 truncate">{q.templateName}</span>
+                    <span className="text-gray-500">· {q.category}</span>
+                    <span className="text-gray-500 ml-auto">{q.totalTargets}건</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -221,14 +275,60 @@ export default function EmailPage() {
             </select>
           </div>
 
-          {/* 템플릿 */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">이메일 템플릿</label>
-            <select value={selectedTemplate} onChange={e => onTemplateChange(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
-              <option value="">선택하세요</option>
-              {templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.step}차)</option>)}
-            </select>
+          {/* 템플릿: 브랜드 탭 + 차수 카드 */}
+          <div className="md:col-span-2 lg:col-span-3">
+            <label className="block text-sm text-gray-400 mb-2">이메일 템플릿</label>
+            {brands.length === 0 ? (
+              <p className="text-xs text-gray-500">템플릿이 없습니다</p>
+            ) : (
+              <>
+                {/* 브랜드 탭 */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {brands.map(b => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setSelectedBrand(b)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                        selectedBrand === b
+                          ? "bg-blue-600 border-blue-500 text-white"
+                          : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
+                      }`}
+                    >
+                      {b}
+                      <span className="ml-1.5 text-[10px] opacity-70">
+                        ({groupedTemplates[b].length})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {/* 차수 카드 */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  {(groupedTemplates[selectedBrand] || []).map(({ template, step: tStep, label }) => {
+                    const active = selectedTemplate === template.id;
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => onTemplateChange(template.id)}
+                        className={`text-left px-3 py-2 rounded border text-sm transition-colors ${
+                          active
+                            ? "bg-blue-600/20 border-blue-500 text-white"
+                            : "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
+                        }`}
+                      >
+                        <div className="font-medium">
+                          {tStep}차 {label ? `— ${label}` : ""}
+                        </div>
+                        <div className="text-[11px] text-gray-500 truncate mt-0.5">
+                          {template.subject}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
 
           {/* A/B 테스트 토글 */}
@@ -240,14 +340,22 @@ export default function EmailPage() {
             </button>
           </div>
 
-          {/* A/B 테스트 B 변형 선택 */}
+          {/* A/B 테스트 B 변형 선택 — 같은 브랜드 내에서만 */}
           {abTestMode && (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">B 변형 템플릿</label>
+              <label className="block text-sm text-gray-400 mb-1">
+                B 변형 템플릿 <span className="text-gray-600">({selectedBrand || "-"})</span>
+              </label>
               <select value={selectedTemplateB} onChange={e => setSelectedTemplateB(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 border border-orange-500/50 rounded text-white text-sm">
                 <option value="">B 변형 선택</option>
-                {templates.filter(t => t.id !== selectedTemplate).map(t => <option key={t.id} value={t.id}>{t.name} ({t.step}차)</option>)}
+                {(groupedTemplates[selectedBrand] || [])
+                  .filter(({ template }) => template.id !== selectedTemplate)
+                  .map(({ template, step: tStep, label }) => (
+                    <option key={template.id} value={template.id}>
+                      {tStep}차 {label ? `— ${label}` : ""}
+                    </option>
+                  ))}
               </select>
             </div>
           )}

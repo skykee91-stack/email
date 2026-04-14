@@ -157,6 +157,9 @@ export async function sendBulkEmails(params: {
   dryRun?: boolean
   profileId?: string
   delaySeconds?: number  // 이메일 간 딜레이 (초). 기본 5초
+  // 후보 조회+필터링 직후 호출. 진행바의 분모(totalTargets)를 maxCount 대신
+  // 실제 대상 수로 갱신하기 위해 사용.
+  onStart?: (info: { totalTargets: number }) => void
 }) {
   const where: Record<string, unknown> = {
     status: 'active',
@@ -202,6 +205,15 @@ export async function sendBulkEmails(params: {
   const businesses = allBusinesses
     .filter(b => isTargetCategory(brandCategory || null, b.category))
     .slice(0, params.maxCount)
+
+  // 진행바 분모를 실제 대상 수로 갱신
+  if (params.onStart && !params.dryRun) {
+    try {
+      params.onStart({ totalTargets: businesses.length })
+    } catch (e) {
+      console.error('[sendBulkEmails] onStart 콜백 오류:', e)
+    }
+  }
 
   // A/B 테스트: 대상을 랜덤으로 절반씩 나누기
   const isABTest = !!params.templateIdB

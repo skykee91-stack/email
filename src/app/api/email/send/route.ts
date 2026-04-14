@@ -1,6 +1,6 @@
 import { sendBulkEmails } from '@/lib/email/sender'
 import { NextRequest, NextResponse } from 'next/server'
-import { enqueueSendJob, getSendState } from '@/lib/email/send-queue'
+import { enqueueSendJob, getSendStateLive } from '@/lib/email/send-queue'
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
           dryRun: false,
           profileId: (body.profileId as string) || undefined,
           delaySeconds,
+          // 후보 조회 직후 실제 대상 수로 진행바 분모 갱신
+          onStart: ({ totalTargets }) => update({ totalTargets }),
         })) as { sent?: number; skipped?: number }
         const sent = result.sent || 0
         const skipped = result.skipped || 0
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET: 발송 상태 조회 (일반/팔로업 모두 포함)
+// 진행 중인 작업의 sent/skipped는 DB에서 실시간 집계하여 반환
 export async function GET() {
-  return NextResponse.json(getSendState())
+  return NextResponse.json(await getSendStateLive())
 }

@@ -211,7 +211,26 @@ export default function FollowupPage() {
                       {currentJob.sent + currentJob.skipped} / {currentJob.totalTargets} (발송 {currentJob.sent}, 스킵 {currentJob.skipped})
                     </div>
                     {sendStatus?.queueLength > 0 && (
-                      <div className="text-xs text-yellow-400 mt-1">대기열 {sendStatus.queueLength}개</div>
+                      <div className="mt-3 pt-3 border-t border-gray-700">
+                        <p className="text-xs text-yellow-400 mb-2">
+                          대기열: {sendStatus.queueLength}건 (현재 발송 완료 후 자동 시작)
+                        </p>
+                        <div className="space-y-1">
+                          {sendStatus.queue?.map((q: any) => (
+                            <div key={q.position} className="flex items-center gap-2 text-xs">
+                              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-yellow-900/40 text-yellow-300">
+                                {q.position}
+                              </span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${q.kind === 'followup' ? 'bg-purple-900/40 text-purple-300' : 'bg-blue-900/40 text-blue-300'}`}>
+                                {q.kind === 'followup' ? '팔로업' : '일반'}
+                              </span>
+                              <span className="text-gray-300 truncate">{q.templateName}</span>
+                              <span className="text-gray-500">· {q.category}</span>
+                              <span className="text-gray-500 ml-auto">{q.totalTargets}건</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
