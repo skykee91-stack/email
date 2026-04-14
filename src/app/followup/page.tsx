@@ -17,6 +17,8 @@ export default function FollowupPage() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [delaySeconds, setDelaySeconds] = useState(5);
+  const [sendStatus, setSendStatus] = useState<any>(null);
 
   const fetchData = () => {
     setLoading(true);
@@ -36,6 +38,19 @@ export default function FollowupPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // 발송 상태 3초마다 폴링 (일반 발송 + 팔로업 공통)
+  useEffect(() => {
+    const tick = () => {
+      fetch("/api/email/send").then(r => r.json()).then(setSendStatus).catch(() => {});
+    };
+    tick();
+    const id = setInterval(tick, 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const currentJob = sendStatus?.sendJob;
+  const isBusy = currentJob?.status === "running";
+
   // 팔로업 자동 실행
   const runFollowup = async (dryRun: boolean) => {
     setRunning(true);
@@ -43,7 +58,7 @@ export default function FollowupPage() {
     const res = await fetch("/api/followup/auto", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dryRun }),
+      body: JSON.stringify({ dryRun, delaySeconds }),
     });
     const data = await res.json();
     setResult(data);
@@ -146,16 +161,60 @@ export default function FollowupPage() {
                   ))}
                 </div>
 
+                {/* 발송 간격 선택 */}
+                <div className="mb-4 flex items-center gap-3">
+                  <label className="text-sm text-gray-300">발송 간격</label>
+                  <select
+                    value={delaySeconds}
+                    onChange={e => setDelaySeconds(Number(e.target.value))}
+                    disabled={isBusy}
+                    className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm disabled:opacity-50"
+                  >
+                    <option value={5}>5초 (안전)</option>
+                    <option value={10}>10초</option>
+                    <option value={30}>30초 (매우 안전)</option>
+                  </select>
+                  <span className="text-xs text-gray-500">
+                    {totalPending}건 × {delaySeconds}초 ≈ 약 {Math.ceil((totalPending * delaySeconds) / 60)}분 소요
+                  </span>
+                </div>
+
                 <div className="flex gap-3">
-                  <button onClick={() => runFollowup(true)} disabled={running}
+                  <button onClick={() => runFollowup(true)} disabled={running || isBusy}
                     className="px-6 py-2.5 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 text-sm font-semibold">
                     미리보기
                   </button>
-                  <button onClick={() => runFollowup(false)} disabled={running}
+                  <button onClick={() => runFollowup(false)} disabled={running || isBusy}
                     className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-semibold">
-                    {running ? "실행 중..." : `팔로업 실행 (${totalPending}건)`}
+                    {isBusy
+                      ? (currentJob?.kind === "followup" ? "팔로업 발송 중..." : "다른 발송 진행 중...")
+                      : running ? "요청 중..." : `팔로업 실행 (${totalPending}건)`}
                   </button>
                 </div>
+
+                {/* 진행 상황 표시 */}
+                {currentJob && (
+                  <div className="mt-4 p-4 bg-gray-800/70 border border-gray-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-white">
+                        {currentJob.kind === "followup" ? "팔로업 발송" : "일반 발송"} — {currentJob.status === "running" ? "진행 중" : currentJob.status === "done" ? "완료" : "실패"}
+                      </span>
+                      <span className="text-xs text-gray-400">{currentJob.templateName}</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, ((currentJob.sent + currentJob.skipped) / Math.max(currentJob.totalTargets, 1)) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {currentJob.sent + currentJob.skipped} / {currentJob.totalTargets} (발송 {currentJob.sent}, 스킵 {currentJob.skipped})
+                    </div>
+                    {sendStatus?.queueLength > 0 && (
+                      <div className="text-xs text-yellow-400 mt-1">대기열 {sendStatus.queueLength}개</div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>

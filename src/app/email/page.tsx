@@ -129,11 +129,22 @@ export default function EmailPage() {
       {sendStatus?.sendJob?.status === 'running' && (
         <div className="mb-4 p-4 bg-green-900/20 border border-green-800/50 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-green-400 font-semibold text-sm animate-pulse">발송 진행 중</p>
+            <p className="text-green-400 font-semibold text-sm animate-pulse">
+              {sendStatus.sendJob.kind === 'followup' ? '팔로업' : '일반'} 발송 진행 중
+            </p>
             <span className="text-green-300 text-xs">{sendStatus.sendJob.templateName}</span>
           </div>
           <p className="text-gray-400 text-xs">
             업종: {sendStatus.sendJob.category} | 시작: {new Date(sendStatus.sendJob.startedAt).toLocaleTimeString("ko-KR")}
+          </p>
+          <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
+            <div
+              className="bg-green-500 h-1.5 rounded-full transition-all"
+              style={{ width: `${Math.min(100, (((sendStatus.sendJob.sent || 0) + (sendStatus.sendJob.skipped || 0)) / Math.max(sendStatus.sendJob.totalTargets || 1, 1)) * 100)}%` }}
+            />
+          </div>
+          <p className="text-gray-500 text-xs mt-1">
+            {(sendStatus.sendJob.sent || 0) + (sendStatus.sendJob.skipped || 0)} / {sendStatus.sendJob.totalTargets} (발송 {sendStatus.sendJob.sent || 0}, 스킵 {sendStatus.sendJob.skipped || 0})
           </p>
           {sendStatus.queueLength > 0 && (
             <p className="text-yellow-400 text-xs mt-2">
