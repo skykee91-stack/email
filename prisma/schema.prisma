@@ -11,7 +11,74 @@ datasource db {
 }
 
 // ──────────────────────────────────────
-// 1. 업체 정보 (스크래퍼로 수집한 데이터)
+// 0. 멀티테넌트 (User / Tenant)
+// ──────────────────────────────────────
+
+enum UserRole {
+  ADMIN     // 셀포 운영자 — 전체 데이터 접근
+  CUSTOMER  // 고객 — 본인 Tenant 데이터만
+}
+
+enum TenantPlan {
+  BASIC       // 월 ₩100,000 · 2,000건
+  STANDARD    // 월 ₩199,000 · 8,000건
+  PREMIUM     // 월 ₩399,000 · 20,000건
+}
+
+enum SetupStatus {
+  PENDING         // 신규 계정 · 아직 세팅 안 함
+  DOMAIN_BOUGHT   // 도메인 구매 완료
+  DNS_DONE        // DNS (SPF/DKIM/DMARC) 설정 완료
+  VERIFIED        // Brevo 도메인·sender 인증 완료
+  ACTIVE          // 모든 세팅 완료 · 발송 가능
+}
+
+model Tenant {
+  id                String      @id @default(uuid())
+  companyName       String      // 회사명 (예: "강남사장 마케팅")
+  domain            String?     // 전용 도메인 (예: kim-sales.com)
+  senderEmail       String?     // 발송 이메일 (예: kim@kim-sales.com)
+  senderName        String      // 발신자 표시명
+  forwardTo         String?     // 답장 포워딩 주소 (고객의 기존 이메일)
+  plan              TenantPlan  @default(BASIC)
+  sendQuotaMonthly  Int         @default(2000) // 플랜별 월 할당량
+  sendUsedThisMonth Int         @default(0)    // 이번 달 누적 발송
+  setupStatus       SetupStatus @default(PENDING)
+  brevoSenderId     Int?        // Brevo sender ID (인증 완료 시)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  users          User[]
+  emailTemplates EmailTemplate[]
+  emailSends     EmailSend[]
+  hotLeads       HotLead[]
+  deals          Deal[]
+  senderProfiles SenderProfile[]
+
+  @@index([domain])
+  @@index([setupStatus])
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         UserRole  @default(CUSTOMER)
+  tenantId     String?
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id])
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([email])
+  @@index([tenantId])
+  @@index([role])
+}
+
+// ──────────────────────────────────────
+// 1. 업체 정보 (스크래퍼로 수집한 데이터 — 공용 풀)
 // ──────────────────────────────────────
 model Business {
   id            String    @id @default(uuid())
@@ -32,7 +99,7 @@ model Business {
 
   emailSends    EmailSend[]
   pageVisits    PageVisit[]
-  hotLead       HotLead?
+  hotLead       HotLead?     // Phase 1: 1:1 유지, Phase 3 에서 1:many 로 변경 예정
   deals         Deal[]
   unsubscribe   Unsubscribe?
 
@@ -47,6 +114,7 @@ model Business {
 // ──────────────────────────────────────
 model EmailTemplate {
   id         String   @id @default(uuid())
+  tenantId   String?  // 멀티테넌트 — null 이면 기존 데이터 (마이그레이션 후 '셀포' 로 채움)
   name       String   // 템플릿 이름
   step       Int      // 발송 단계 (1~4)
   subject    String   // 이메일 제목
@@ -58,7 +126,10 @@ model EmailTemplate {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
   emailSends EmailSend[]
+
+  @@index([tenantId])
 }
 
 // ──────────────────────────────────────
@@ -66,6 +137,7 @@ model EmailTemplate {
 // ──────────────────────────────────────
 model EmailSend {
   id             String    @id @default(uuid())
+  tenantId       String?   // 멀티테넌트 — null 이면 기존 데이터
   businessId     String
   templateId     String?
   step           Int       // 몇 차 발송 (1~4)
@@ -84,10 +156,12 @@ model EmailSend {
   repliedAt      DateTime?
   createdAt      DateTime  @default(now())
 
+  tenant     Tenant?        @relation(fields: [tenantId], references: [id])
   business   Business       @relation(fields: [businessId], references: [id])
   template   EmailTemplate? @relation(fields: [templateId], references: [id])
   pageVisits PageVisit[]
 
+  @@index([tenantId])
   @@index([businessId])
   @@index([status])
   @@index([step])
@@ -121,7 +195,8 @@ model PageVisit {
 // ──────────────────────────────────────
 model HotLead {
   id           String    @id @default(uuid())
-  businessId   String    @unique
+  tenantId     String?   // 멀티테넌트 — Phase 1 에선 nullable, Phase 3 에서 코드와 함께 unique 제약 변경 예정
+  businessId   String    @unique // Phase 3 에서 @@unique([tenantId, businessId]) 로 변경 예정
   score        Float     @default(0)
   tier         String    @default("C") // S / A / B / C
   totalOpens   Int       @default(0)
@@ -133,8 +208,10 @@ model HotLead {
   lastActivity DateTime?
   updatedAt    DateTime  @updatedAt
 
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id])
   business Business @relation(fields: [businessId], references: [id])
 
+  @@index([tenantId])
   @@index([tier])
   @@index([score(sort: Desc)])
 }
@@ -211,6 +288,7 @@ model ScrapeSkipLog {
 // ──────────────────────────────────────
 model Deal {
   id             String   @id @default(uuid())
+  tenantId       String?  // 멀티테넌트 — 테넌트별로 계약 따로 관리
   businessId     String
   stage          String   @default("replied") // replied / meeting / contracted
   amount         Float?
@@ -218,7 +296,11 @@ model Deal {
   stageChangedAt DateTime @default(now())
   createdAt      DateTime @default(now())
 
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id])
   business Business @relation(fields: [businessId], references: [id])
+
+  @@index([tenantId])
+  @@index([businessId])
 }
 
 // ──────────────────────────────────────
@@ -226,6 +308,7 @@ model Deal {
 // ──────────────────────────────────────
 model SenderProfile {
   id              String   @id @default(uuid())
+  tenantId        String?  // 멀티테넌트 — 테넌트별 발신자. null 이면 기존/공용
   serviceName     String   // 서비스명 (예: 셀포, 다른서비스)
   senderName      String   // 발신자 표시명 (예: "셀포 by 마스터인사이트")
   senderEmail     String   // 발신 이메일
@@ -237,4 +320,8 @@ model SenderProfile {
   isDefault       Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
