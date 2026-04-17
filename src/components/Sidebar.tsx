@@ -2,6 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import UserMenu from "./UserMenu";
+
+interface SessionUser {
+  email?: string | null;
+  name?: string | null;
+  role?: 'ADMIN' | 'CUSTOMER' | null;
+}
 
 // 사이드바 메뉴 항목 정의
 const menuItems = [
@@ -19,19 +26,21 @@ const menuItems = [
   { name: "설정", path: "/settings", icon: "⚙️" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
       {/* 로고 영역 */}
       <div className="p-6 border-b border-gray-800">
-        <h1 className="text-xl font-bold text-white">영업 자동화</h1>
-        <p className="text-sm text-gray-400 mt-1">이메일 발송 시스템</p>
+        <h1 className="text-xl font-bold text-white">셀포 메일러</h1>
+        <p className="text-sm text-gray-400 mt-1">
+          {user?.role === 'ADMIN' ? '어드민 · 전체 보기' : 'B2B 영업 자동화'}
+        </p>
       </div>
 
       {/* 메뉴 목록 */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = pathname === item.path;
           return (
@@ -51,9 +60,9 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* 하단 정보 */}
-      <div className="p-4 border-t border-gray-800">
-        <p className="text-xs text-gray-500">v0.1.0 - Step 1</p>
+      {/* 사용자 메뉴 */}
+      <div className="p-3 border-t border-gray-800">
+        <UserMenu user={user} />
       </div>
     </aside>
   );
