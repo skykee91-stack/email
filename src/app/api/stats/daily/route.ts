@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { SENT_STATUS_FILTER } from '@/lib/stats/email-metrics'
+import { getTenantFilter } from '@/lib/tenant'
 
 // 일별 지표
 // - 발송(sent) = status IN ('sent','delivered','bounced') 인 레코드 중 createdAt이 해당 날짜에 속한 것
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const days = parseInt(searchParams.get('days') || '30')
 
+  const tenantFilter = await getTenantFilter()
   const dailyStats = []
 
   const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
@@ -25,16 +27,16 @@ export async function GET(req: NextRequest) {
 
     const [sent, delivered, opened, clicked] = await Promise.all([
       prisma.emailSend.count({
-        where: { createdAt: range, status: SENT_STATUS_FILTER },
+        where: { ...tenantFilter, createdAt: range, status: SENT_STATUS_FILTER },
       }),
       prisma.emailSend.count({
-        where: { createdAt: range, status: 'delivered' },
+        where: { ...tenantFilter, createdAt: range, status: 'delivered' },
       }),
       prisma.emailSend.count({
-        where: { createdAt: range, openedAt: { not: null } },
+        where: { ...tenantFilter, createdAt: range, openedAt: { not: null } },
       }),
       prisma.emailSend.count({
-        where: { createdAt: range, clickedAt: { not: null } },
+        where: { ...tenantFilter, createdAt: range, clickedAt: { not: null } },
       }),
     ])
 

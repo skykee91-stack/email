@@ -13,6 +13,7 @@ import {
   getDateRangeFromDays,
   getEmailMetrics,
 } from '@/lib/stats/email-metrics'
+import { getTenantContext, getTenantFilter } from '@/lib/tenant'
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,14 +21,23 @@ export async function GET(req: NextRequest) {
     const days = parseInt(searchParams.get('days') || '30')
     const range = getDateRangeFromDays(days)
 
-    // 0. 요약 (공통 함수 사용 → funnel/roi와 완전히 동일한 숫자)
-    const metrics = await getEmailMetrics(range)
+    // 테넌트 컨텍스트
+    const ctx = await getTenantContext()
+    const tenantFilter = await getTenantFilter()
 
-    // 공통 조건: 발송된 메일만, 지정 기간
-    const whereSQL = `
+    // 0. 요약 (공통 함수 사용 → funnel/roi와 완전히 동일한 숫자)
+    const metrics = await getEmailMetrics(range, tenantFilter)
+
+    // 공통 조건: 발송된 메일만, 지정 기간. 고객이면 tenant 필터 추가
+    const queryParams: unknown[] = [range.gte]
+    let whereSQL = `
       e."createdAt" >= $1
       AND e.status IN ('sent', 'delivered', 'bounced')
     `
+    if (ctx && !ctx.isAdmin && ctx.tenantId) {
+      queryParams.push(ctx.tenantId)
+      whereSQL += ` AND e."tenantId" = $${queryParams.length}`
+    }
 
     // 1. 업종별 성과 (LEFT JOIN으로 변경 — Business 삭제된 것도 '미분류'로 포함)
     const categoryStats = (await prisma.$queryRawUnsafe(
@@ -46,7 +56,7 @@ export async function GET(req: NextRequest) {
       GROUP BY COALESCE(b.category, '미분류')
       ORDER BY COUNT(DISTINCT CASE WHEN e."openedAt" IS NOT NULL THEN e.id END) DESC
       `,
-      range.gte,
+      ...queryParams,
     )) as Array<Record<string, unknown>>
 
     const categoryInsights = categoryStats.map((row) => {
@@ -88,7 +98,7 @@ export async function GET(req: NextRequest) {
       GROUP BY t.id, t.name, t.subject, t.step, t."abVariant"
       ORDER BY COUNT(DISTINCT CASE WHEN e."openedAt" IS NOT NULL THEN e.id END) DESC
       `,
-      range.gte,
+      ...queryParams,
     )) as Array<Record<string, unknown>>
 
     const templateInsights = templateStats.map((row) => {
@@ -130,7 +140,7 @@ export async function GET(req: NextRequest) {
       GROUP BY e.step
       ORDER BY e.step
       `,
-      range.gte,
+      ...queryParams,
     )) as Array<Record<string, unknown>>
 
     const stepInsights = stepStats.map((row) => {

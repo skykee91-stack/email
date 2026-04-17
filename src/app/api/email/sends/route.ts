@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { getTenantFilter } from '@/lib/tenant'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -8,7 +9,8 @@ export async function GET(req: NextRequest) {
   const step = searchParams.get('step')
   const status = searchParams.get('status')
 
-  const where: Record<string, unknown> = {}
+  const tenantFilter = await getTenantFilter()
+  const where: Record<string, unknown> = { ...tenantFilter }
   if (step) where.step = parseInt(step)
   if (status) where.status = status
 

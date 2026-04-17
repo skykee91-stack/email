@@ -29,9 +29,10 @@ interface SendEmailParams {
   templateId: string
   step: number
   profileId?: string // 발신자 프로필 ID (없으면 기본 프로필 사용)
+  tenantId?: string | null // 발송 주체의 테넌트 ID (멀티테넌트 격리용)
 }
 
-export async function sendEmail({ businessId, templateId, step, profileId }: SendEmailParams) {
+export async function sendEmail({ businessId, templateId, step, profileId, tenantId }: SendEmailParams) {
   // 1. 업체 정보
   const business = await prisma.business.findUnique({ where: { id: businessId } })
   if (!business?.email) return { error: '이메일 없음', skipped: true }
@@ -85,6 +86,7 @@ export async function sendEmail({ businessId, templateId, step, profileId }: Sen
   // 7. 발송 기록 먼저 생성 (queued 상태) + 렌더링된 내용 저장
   const send = await prisma.emailSend.create({
     data: {
+      tenantId: tenantId ?? undefined,
       businessId,
       templateId,
       step,
@@ -156,6 +158,7 @@ export async function sendBulkEmails(params: {
   maxCount: number
   dryRun?: boolean
   profileId?: string
+  tenantId?: string | null  // 발송 주체의 테넌트 ID
   delaySeconds?: number  // 이메일 간 딜레이 (초). 기본 5초
   // 후보 조회+필터링 직후 호출. 진행바의 분모(totalTargets)를 maxCount 대신
   // 실제 대상 수로 갱신하기 위해 사용.
@@ -265,6 +268,7 @@ export async function sendBulkEmails(params: {
       templateId: params.templateId,
       step: params.step,
       profileId: params.profileId,
+      tenantId: params.tenantId,
     })
 
     if (result.success) {
@@ -290,6 +294,7 @@ export async function sendBulkEmails(params: {
       templateId: params.templateIdB!,
       step: params.step,
       profileId: params.profileId,
+      tenantId: params.tenantId,
     })
 
     if (result.success) {

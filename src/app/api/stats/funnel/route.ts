@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { startSyncCron } from '@/lib/email/sync'
 import { getDateRangeFromDays, getEmailMetrics } from '@/lib/stats/email-metrics'
+import { getTenantFilter } from '@/lib/tenant'
 
 // 크론 자동 시작 (stats 페이지 접근 시)
 startSyncCron()
@@ -10,7 +11,8 @@ export async function GET(req: NextRequest) {
   const days = parseInt(searchParams.get('days') || '30')
 
   const range = getDateRangeFromDays(days)
-  const metrics = await getEmailMetrics(range)
+  const tenantFilter = await getTenantFilter()
+  const metrics = await getEmailMetrics(range, tenantFilter)
 
   return NextResponse.json({
     days,

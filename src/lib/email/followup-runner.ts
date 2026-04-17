@@ -170,6 +170,8 @@ export async function runFollowupAuto(
             select: { id: true, name: true, email: true, category: true },
           },
         },
+        // 테넌트별로 일관되게 처리하기 위해 tenantId 도 필요
+        // findMany 는 기본적으로 모든 필드 반환하므로 별도 select 없음
         take: 500,
       })
 
@@ -185,11 +187,13 @@ export async function runFollowupAuto(
       for (let i = 0; i < candidates.length; i++) {
         const c = candidates[i]
         try {
+          // 팔로업은 원본 발송의 테넌트를 상속 (같은 고객 소유로 남음)
           const result = await sendEmail({
             businessId: c.businessId,
             templateId,
             step,
             profileId,
+            tenantId: c.tenantId ?? undefined,
           })
           if (result.success) {
             stepSent++

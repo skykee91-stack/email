@@ -1,12 +1,15 @@
 import { sendBulkEmails } from '@/lib/email/sender'
 import { NextRequest, NextResponse } from 'next/server'
 import { enqueueSendJob, getSendStateLive } from '@/lib/email/send-queue'
+import { getWriteTenantId } from '@/lib/tenant'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     if (!body.templateId)
       return NextResponse.json({ error: 'templateId 필수' }, { status: 400 })
+
+    const tenantId = await getWriteTenantId()
 
     // dryRun이면 즉시 응답 (큐 거치지 않음)
     if (body.dryRun) {
@@ -18,6 +21,7 @@ export async function POST(req: NextRequest) {
         maxCount: body.maxCount || 100,
         dryRun: true,
         profileId: body.profileId || undefined,
+        tenantId,
         delaySeconds: body.delaySeconds ?? 5,
       })
       return NextResponse.json(result)
@@ -45,6 +49,7 @@ export async function POST(req: NextRequest) {
           maxCount,
           dryRun: false,
           profileId: (body.profileId as string) || undefined,
+          tenantId,
           delaySeconds,
           // 후보 조회 직후 실제 대상 수로 진행바 분모 갱신
           onStart: ({ totalTargets }) => update({ totalTargets }),

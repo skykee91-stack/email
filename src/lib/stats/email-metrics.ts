@@ -59,11 +59,13 @@ function pct(numer: number, denom: number): number {
 /**
  * 지정 기간의 이메일 지표를 계산한다.
  * 기간 필터는 createdAt 기준 (EmailSend 레코드가 만들어진 시점).
+ * tenantFilter: 테넌트 격리 필터 (어드민은 빈 객체, 고객은 { tenantId })
  */
 export async function getEmailMetrics(
   range: DateRange,
+  tenantFilter: { tenantId?: string } | Record<string, never> = {},
 ): Promise<EmailMetricsWithRates> {
-  const base = { createdAt: range }
+  const base = { createdAt: range, ...tenantFilter }
 
   const [sent, delivered, opened, clicked, bounced, replied, unsubscribed] =
     await Promise.all([

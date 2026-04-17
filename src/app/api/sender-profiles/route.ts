@@ -4,9 +4,12 @@
 
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { getTenantContext, getTenantFilter, getWriteTenantId } from '@/lib/tenant'
 
 export async function GET() {
+  const tenantFilter = await getTenantFilter()
   const profiles = await prisma.senderProfile.findMany({
+    where: tenantFilter,
     orderBy: { createdAt: 'desc' },
   })
   return NextResponse.json({ profiles })
@@ -23,15 +26,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 기본 프로필로 설정 시 다른 것들 해제
+    const tenantId = await getWriteTenantId()
+    const ctx = await getTenantContext()
+
+    // 기본 프로필로 설정 시 같은 테넌트 내 다른 것들 해제
     if (body.isDefault) {
       await prisma.senderProfile.updateMany({
+        where: ctx?.isAdmin ? {} : { tenantId: tenantId ?? undefined },
         data: { isDefault: false },
       })
     }
 
     const profile = await prisma.senderProfile.create({
       data: {
+        tenantId: tenantId ?? undefined,
         serviceName: body.serviceName,
         senderName: body.senderName || body.serviceName,
         senderEmail: body.senderEmail,
@@ -60,8 +68,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'id 필수' }, { status: 400 })
     }
 
+    const ctx = await getTenantContext()
+    const existing = await prisma.senderProfile.findUnique({ where: { id: body.id } })
+    if (!existing) return NextResponse.json({ error: '프로필 없음' }, { status: 404 })
+    if (ctx && !ctx.isAdmin && existing.tenantId !== ctx.tenantId) {
+      return NextResponse.json({ error: '권한 없음' }, { status: 403 })
+    }
+
     if (body.isDefault) {
       await prisma.senderProfile.updateMany({
+        where: ctx?.isAdmin ? {} : { tenantId: existing.tenantId },
         data: { isDefault: false },
       })
     }
@@ -95,6 +111,13 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id 필수' }, { status: 400 })
+
+    const ctx = await getTenantContext()
+    const existing = await prisma.senderProfile.findUnique({ where: { id } })
+    if (!existing) return NextResponse.json({ error: '프로필 없음' }, { status: 404 })
+    if (ctx && !ctx.isAdmin && existing.tenantId !== ctx.tenantId) {
+      return NextResponse.json({ error: '권한 없음' }, { status: 403 })
+    }
 
     await prisma.senderProfile.delete({ where: { id } })
     return NextResponse.json({ ok: true })

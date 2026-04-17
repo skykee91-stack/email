@@ -3,12 +3,14 @@
 
 import { prisma } from '@/lib/prisma'
 import { getEmailMetrics } from '@/lib/stats/email-metrics'
+import { getTenantFilter } from '@/lib/tenant'
 
 export async function calculateROI(startDate: Date, endDate: Date) {
   const range = { gte: startDate, lte: endDate }
-  const metrics = await getEmailMetrics(range)
+  const tenantFilter = await getTenantFilter()
+  const metrics = await getEmailMetrics(range, tenantFilter)
 
-  const deals = await prisma.deal.findMany({ where: { createdAt: range } })
+  const deals = await prisma.deal.findMany({ where: { ...tenantFilter, createdAt: range } })
   const meetings = deals.filter((d) => d.stage === 'meeting' || d.stage === 'contracted').length
   const contracts = deals.filter((d) => d.stage === 'contracted').length
   const revenue = deals

@@ -1,6 +1,7 @@
 import { calculateROI } from '@/lib/roi/calculator'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { getWriteTenantId } from '@/lib/tenant'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -19,8 +20,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   if (!body.businessId) return NextResponse.json({ error: 'businessId 필수' }, { status: 400 })
 
+  const tenantId = await getWriteTenantId()
   const deal = await prisma.deal.create({
     data: {
+      tenantId: tenantId ?? undefined,
       businessId: body.businessId,
       stage: body.stage || 'replied',
       amount: body.amount || null,
