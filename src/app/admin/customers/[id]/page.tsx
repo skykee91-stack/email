@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
+import SetupControls from './SetupControls'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,6 +93,12 @@ export default async function CustomerDetailPage({
 
           <Card title="도메인 세팅 체크리스트">
             <SetupSteps status={tenant.setupStatus} />
+            <SetupControls
+              tenantId={tenant.id}
+              currentStatus={
+                tenant.setupStatus as 'PENDING' | 'DOMAIN_BOUGHT' | 'DNS_DONE' | 'VERIFIED' | 'ACTIVE'
+              }
+            />
           </Card>
         </div>
       </div>
