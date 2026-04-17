@@ -1,10 +1,10 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const callbackUrl = params.get('callbackUrl') || '/'
@@ -36,6 +36,83 @@ export default function LoginPage() {
     }
   }
 
+  return (
+    <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#4E5968' }}>이메일</span>
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="name@example.com"
+          style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            border: '1px solid #E5E8EB',
+            fontSize: 15,
+            outline: 'none',
+          }}
+        />
+      </label>
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#4E5968' }}>비밀번호</span>
+        <input
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          type="password"
+          required
+          autoComplete="current-password"
+          style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            border: '1px solid #E5E8EB',
+            fontSize: 15,
+            outline: 'none',
+          }}
+        />
+      </label>
+
+      {error && (
+        <div
+          style={{
+            background: '#FEF2F2',
+            color: '#DC2626',
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={loading}
+        style={{
+          marginTop: 6,
+          padding: '14px 24px',
+          background: loading ? '#91B6F5' : '#3182F6',
+          color: 'white',
+          border: 'none',
+          borderRadius: 14,
+          fontWeight: 800,
+          fontSize: 15,
+          cursor: loading ? 'not-allowed' : 'pointer',
+          boxShadow: '0 8px 20px rgba(49,130,246,0.3)',
+        }}
+      >
+        {loading ? '로그인 중...' : '로그인'}
+      </button>
+    </form>
+  )
+}
+
+export default function LoginPage() {
   return (
     <main
       style={{
@@ -70,78 +147,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#4E5968' }}>이메일</span>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="name@example.com"
-              style={{
-                padding: '14px 16px',
-                borderRadius: 12,
-                border: '1px solid #E5E8EB',
-                fontSize: 15,
-                outline: 'none',
-              }}
-            />
-          </label>
-
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#4E5968' }}>비밀번호</span>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              required
-              autoComplete="current-password"
-              style={{
-                padding: '14px 16px',
-                borderRadius: 12,
-                border: '1px solid #E5E8EB',
-                fontSize: 15,
-                outline: 'none',
-              }}
-            />
-          </label>
-
-          {error && (
-            <div
-              style={{
-                background: '#FEF2F2',
-                color: '#DC2626',
-                padding: '10px 14px',
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              marginTop: 6,
-              padding: '14px 24px',
-              background: loading ? '#91B6F5' : '#3182F6',
-              color: 'white',
-              border: 'none',
-              borderRadius: 14,
-              fontWeight: 800,
-              fontSize: 15,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 8px 20px rgba(49,130,246,0.3)',
-            }}
-          >
-            {loading ? '로그인 중...' : '로그인'}
-          </button>
-        </form>
+        <Suspense fallback={<div style={{ textAlign: 'center', color: '#6B7684' }}>로드 중...</div>}>
+          <LoginForm />
+        </Suspense>
 
         <p style={{ marginTop: 24, fontSize: 12, color: '#6B7684', textAlign: 'center' }}>
           계정이 필요하면 관리자에게 문의하세요.
