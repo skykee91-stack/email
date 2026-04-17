@@ -1,8 +1,11 @@
-// 인증 미들웨어 — 공개 경로 외엔 로그인 필수
-// 공개: /login, /api/auth/*, /api/webhook/*, /unsubscribe, /api/unsubscribe/*
+// 인증 미들웨어 (Edge runtime) — 공개 경로 외엔 로그인 필수
+// auth.config.ts 만 import (prisma/bcrypt 사용 X)
 
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import NextAuth from 'next-auth'
+import { authConfig } from '@/lib/auth.config'
+
+const { auth } = NextAuth(authConfig)
 
 const PUBLIC_PATHS = [
   '/login',
@@ -15,7 +18,6 @@ const PUBLIC_PATHS = [
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true
-  // Next.js 내부 리소스
   if (pathname.startsWith('/_next')) return true
   if (pathname === '/favicon.ico' || pathname.startsWith('/favicon')) return true
   if (pathname.startsWith('/images/')) return true
@@ -48,10 +50,8 @@ export default auth((req) => {
   return NextResponse.next()
 })
 
-// matcher: 모든 경로 (미들웨어에서 세부 제어)
 export const config = {
   matcher: [
-    // API 라우트, 정적 파일 제외하고 모두 대상
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }

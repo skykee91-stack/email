@@ -1,14 +1,14 @@
-// NextAuth v5 설정 — 이메일/비밀번호 로그인
-// 공개 라우트: /login, /api/auth, /api/webhook/brevo, /unsubscribe, /api/unsubscribe
+// NextAuth v5 - Node runtime 전용 (prisma, bcrypt 사용)
+// 미들웨어는 src/middleware.ts 에서 auth.config.ts 로 별도 취급
 
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
+import { authConfig } from './auth.config'
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
-  session: { strategy: 'jwt' },
-  trustHost: true,
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -26,7 +26,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         const ok = await bcrypt.compare(password, user.passwordHash)
         if (!ok) return null
 
-        // 마지막 로그인 시각 갱신 (비동기로 실행, 실패해도 무시)
+        // 마지막 로그인 시각 갱신 (실패해도 무시)
         prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
@@ -42,25 +42,4 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role
-        token.tenantId = (user as any).tenantId
-        token.userId = (user as any).id
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.userId as string
-        ;(session.user as any).role = token.role
-        ;(session.user as any).tenantId = token.tenantId as string | null
-      }
-      return session
-    },
-  },
-  pages: {
-    signIn: '/login',
-  },
 })
