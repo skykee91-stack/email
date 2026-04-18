@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import ExportSendsButton from "@/components/ExportSendsButton";
 
 export default function StatsPage() {
   const [funnel, setFunnel] = useState<any>(null);
@@ -24,11 +25,14 @@ export default function StatsPage() {
           <h1 className="text-2xl font-bold text-white">통계</h1>
           <p className="text-gray-400 mt-1">퍼널 & 일별 추이</p>
         </div>
-        <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-          className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white">
-          <option value={7}>7일</option><option value={14}>14일</option>
-          <option value={30}>30일</option><option value={90}>90일</option>
-        </select>
+        <div className="flex gap-2 items-center">
+          <ExportSendsButton label="📥 발송내역 다운로드" />
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))}
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white">
+            <option value={7}>7일</option><option value={14}>14일</option>
+            <option value={30}>30일</option><option value={90}>90일</option>
+          </select>
+        </div>
       </div>
 
       {/* 퍼널 */}

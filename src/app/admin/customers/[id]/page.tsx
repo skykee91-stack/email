@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import SetupControls from './SetupControls'
+import ExportSendsButton from '@/components/ExportSendsButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,10 +35,15 @@ export default async function CustomerDetailPage({
         </a>
       </div>
 
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{tenant.companyName}</h1>
-      <p style={{ color: '#6B7684', fontSize: 14, marginBottom: 24 }}>
-        Tenant ID: <code style={{ fontFamily: 'monospace' }}>{tenant.id}</code>
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{tenant.companyName}</h1>
+          <p style={{ color: '#6B7684', fontSize: 14 }}>
+            Tenant ID: <code style={{ fontFamily: 'monospace' }}>{tenant.id}</code>
+          </p>
+        </div>
+        <ExportSendsButton tenantId={tenant.id} label="📥 이 고객 발송내역 다운로드" />
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

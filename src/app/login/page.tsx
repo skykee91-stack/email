@@ -116,6 +116,7 @@ export default function LoginPage() {
   return (
     <main
       style={{
+        width: '100%',
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
