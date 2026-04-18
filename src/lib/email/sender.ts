@@ -30,9 +30,26 @@ interface SendEmailParams {
   step: number
   profileId?: string // 발신자 프로필 ID (없으면 기본 프로필 사용)
   tenantId?: string | null // 발송 주체의 테넌트 ID (멀티테넌트 격리용)
+  campaignId?: string | null // 캠페인(주문) ID — 1차/팔로업 공유
 }
 
-export async function sendEmail({ businessId, templateId, step, profileId, tenantId }: SendEmailParams) {
+export async function sendEmail({ businessId, templateId, step, profileId, tenantId, campaignId }: SendEmailParams) {
+  // 0. 캠페인 한도 체크 (계약 수량 초과 시 발송 차단)
+  if (campaignId) {
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
+    if (!campaign) return { error: '캠페인 없음', skipped: true }
+    if (campaign.status === 'paused') return { error: '캠페인 일시정지', skipped: true }
+    if (campaign.status === 'completed') return { error: '캠페인 완료 (계약 수량 도달)', skipped: true }
+    if (campaign.currentTotal >= campaign.targetTotal) {
+      // 자동 completed 처리
+      await prisma.campaign.update({
+        where: { id: campaignId },
+        data: { status: 'completed', finishedAt: new Date() },
+      })
+      return { error: '계약 수량 도달 — 캠페인 자동 완료', skipped: true }
+    }
+  }
+
   // 1. 업체 정보
   const business = await prisma.business.findUnique({ where: { id: businessId } })
   if (!business?.email) return { error: '이메일 없음', skipped: true }
@@ -87,6 +104,7 @@ export async function sendEmail({ businessId, templateId, step, profileId, tenan
   const send = await prisma.emailSend.create({
     data: {
       tenantId: tenantId ?? undefined,
+      campaignId: campaignId ?? undefined,
       businessId,
       templateId,
       step,
@@ -135,6 +153,20 @@ export async function sendEmail({ businessId, templateId, step, profileId, tenan
       },
     })
 
+    // 10. 캠페인 카운터 증가 + 한도 도달 시 자동 완료
+    if (campaignId) {
+      const updated = await prisma.campaign.update({
+        where: { id: campaignId },
+        data: { currentTotal: { increment: 1 } },
+      })
+      if (updated.currentTotal >= updated.targetTotal && updated.status !== 'completed') {
+        await prisma.campaign.update({
+          where: { id: campaignId },
+          data: { status: 'completed', finishedAt: new Date() },
+        })
+      }
+    }
+
     return { success: true, messageId: result.messageId, sendId: send.id }
   } catch (error) {
     // 발송 실패 기록
@@ -159,6 +191,7 @@ export async function sendBulkEmails(params: {
   dryRun?: boolean
   profileId?: string
   tenantId?: string | null  // 발송 주체의 테넌트 ID
+  campaignId?: string | null // 캠페인 ID
   delaySeconds?: number  // 이메일 간 딜레이 (초). 기본 5초
   // 후보 조회+필터링 직후 호출. 진행바의 분모(totalTargets)를 maxCount 대신
   // 실제 대상 수로 갱신하기 위해 사용.
@@ -269,6 +302,7 @@ export async function sendBulkEmails(params: {
       step: params.step,
       profileId: params.profileId,
       tenantId: params.tenantId,
+      campaignId: params.campaignId,
     })
 
     if (result.success) {
@@ -295,6 +329,7 @@ export async function sendBulkEmails(params: {
       step: params.step,
       profileId: params.profileId,
       tenantId: params.tenantId,
+      campaignId: params.campaignId,
     })
 
     if (result.success) {

@@ -194,13 +194,14 @@ export async function runFollowupAuto(
       for (let i = 0; i < candidates.length; i++) {
         const c = candidates[i]
         try {
-          // 팔로업은 원본 발송의 테넌트를 상속 (같은 고객 소유로 남음)
+          // 팔로업은 원본 발송의 테넌트/캠페인을 상속 (같은 주문 단위에 누적)
           const result = await sendEmail({
             businessId: c.businessId,
             templateId,
             step,
             profileId,
             tenantId: c.tenantId ?? undefined,
+            campaignId: c.campaignId ?? undefined,
           })
           if (result.success) {
             stepSent++

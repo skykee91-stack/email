@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
         templateId,
         step,
         tenantId: (candidate as { tenantId?: string | null }).tenantId ?? undefined,
+        campaignId: (candidate as { campaignId?: string | null }).campaignId ?? undefined,
       })
       if (result.success) results.sent++
       else {

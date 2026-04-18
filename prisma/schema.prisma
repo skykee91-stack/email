@@ -54,6 +54,7 @@ model Tenant {
   hotLeads       HotLead[]
   deals          Deal[]
   senderProfiles SenderProfile[]
+  campaigns      Campaign[]
 
   @@index([domain])
   @@index([setupStatus])
@@ -75,6 +76,29 @@ model User {
   @@index([email])
   @@index([tenantId])
   @@index([role])
+}
+
+// 캠페인(주문 단위) — 1차 발송 + 팔로업까지 모두 합산해서 targetTotal 까지
+model Campaign {
+  id              String    @id @default(uuid())
+  tenantId        String
+  name            String    // "2026-04 치과 1만건"
+  description     String?
+  targetTotal     Int       // 계약 수량 (1차+팔로업 전체 합산)
+  currentTotal    Int       @default(0) // 실시간 누적 (발송 성공 시 +1)
+  status          String    @default("active") // active / paused / completed
+  targetCategory  String?   // 카테고리 메모 (치과 등)
+  targetRegion    String?   // 지역 메모
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  finishedAt      DateTime?
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  emailSends  EmailSend[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ──────────────────────────────────────
@@ -138,6 +162,7 @@ model EmailTemplate {
 model EmailSend {
   id             String    @id @default(uuid())
   tenantId       String?   // 멀티테넌트 — null 이면 기존 데이터
+  campaignId     String?   // 캠페인(주문) 소속 — 1차/팔로업 전부 같은 campaignId 공유
   businessId     String
   templateId     String?
   step           Int       // 몇 차 발송 (1~4)
@@ -157,11 +182,13 @@ model EmailSend {
   createdAt      DateTime  @default(now())
 
   tenant     Tenant?        @relation(fields: [tenantId], references: [id])
+  campaign   Campaign?      @relation(fields: [campaignId], references: [id])
   business   Business       @relation(fields: [businessId], references: [id])
   template   EmailTemplate? @relation(fields: [templateId], references: [id])
   pageVisits PageVisit[]
 
   @@index([tenantId])
+  @@index([campaignId])
   @@index([businessId])
   @@index([status])
   @@index([step])

@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const tenantIdParam = searchParams.get('tenantId')
+    const campaignIdParam = searchParams.get('campaignId')
 
     // 어드민은 tenantId 쿼리로 특정 테넌트 필터 가능, 고객은 본인 테넌트 강제
     let tenantFilter: { tenantId?: string } = {}
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No tenant' }, { status: 403 })
     }
 
+    // 캠페인 필터 — 지정되면 해당 주문의 1~4차 전부
+    const campaignFilter = campaignIdParam ? { campaignId: campaignIdParam } : {}
+
     // 기간 필터
     const dateFilter: { gte?: Date; lte?: Date } = {}
     if (from) dateFilter.gte = new Date(from)
@@ -37,6 +41,7 @@ export async function GET(req: NextRequest) {
     const sends = await prisma.emailSend.findMany({
       where: {
         ...tenantFilter,
+        ...campaignFilter,
         ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
       },
       include: {
@@ -46,11 +51,12 @@ export async function GET(req: NextRequest) {
         template: {
           select: { name: true, category: true, subject: true },
         },
+        campaign: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    // 파일명 — 테넌트명 포함
+    // 파일명 — 테넌트명 + 캠페인명 포함
     let tenantLabel = 'all'
     if (tenantFilter.tenantId) {
       const t = await prisma.tenant.findUnique({
@@ -59,12 +65,21 @@ export async function GET(req: NextRequest) {
       })
       tenantLabel = t?.companyName || tenantFilter.tenantId
     }
+    let campaignLabel = ''
+    if (campaignIdParam) {
+      const c = await prisma.campaign.findUnique({
+        where: { id: campaignIdParam },
+        select: { name: true },
+      })
+      if (c) campaignLabel = `_${c.name}`
+    }
     const today = new Date().toISOString().slice(0, 10)
-    const filename = `발송내역_${tenantLabel}_${today}.csv`
+    const filename = `발송내역_${tenantLabel}${campaignLabel}_${today}.csv`
       .replace(/[^\w가-힣.\-_]/g, '_')
 
     // CSV 헤더
     const headers = [
+      '캠페인',
       '발송일시',
       '수신자 업체명',
       '수신자 이메일',
@@ -86,6 +101,7 @@ export async function GET(req: NextRequest) {
 
     const rows = sends.map((s) => {
       const row = [
+        (s as { campaign?: { name: string } | null }).campaign?.name || '',
         s.createdAt ? new Date(s.createdAt).toLocaleString('ko-KR') : '',
         s.business?.name || '',
         s.business?.email || '',

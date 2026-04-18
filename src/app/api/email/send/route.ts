@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'templateId 필수' }, { status: 400 })
 
     const tenantId = await getWriteTenantId()
+    const campaignId = body.campaignId || undefined
 
     // dryRun이면 즉시 응답 (큐 거치지 않음)
     if (body.dryRun) {
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
         dryRun: true,
         profileId: body.profileId || undefined,
         tenantId,
+        campaignId,
         delaySeconds: body.delaySeconds ?? 5,
       })
       return NextResponse.json(result)
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
           dryRun: false,
           profileId: (body.profileId as string) || undefined,
           tenantId,
+          campaignId,
           delaySeconds,
           // 후보 조회 직후 실제 대상 수로 진행바 분모 갱신
           onStart: ({ totalTargets }) => update({ totalTargets }),
