@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { getTenantContext, getTenantFilter } from '@/lib/tenant'
 
 // 브랜드별 타겟 업종 키워드 (업체 카테고리에 이 단어가 포함되면 해당 브랜드 타겟)
 // 셀포는 전 업종이라 빈 배열 (= 필터 안 함)
@@ -24,9 +25,16 @@ function isTargetCategory(brand: string, category: string | null): boolean {
 // 피원코팅즈: 자동차/랩핑/바이크 관련 업종만
 export async function GET() {
   try {
-    // 모든 활성 템플릿 카테고리 조회
+    const ctx = await getTenantContext()
+    const tenantFilter = await getTenantFilter()
+
+    // emailSends 관계 필터용: 고객이면 본인 테넌트의 발송만 체크
+    const sendsTenantScope =
+      ctx && !ctx.isAdmin && ctx.tenantId ? { tenantId: ctx.tenantId } : {}
+
+    // 모든 활성 템플릿 카테고리 조회 (본인 테넌트의 템플릿만)
     const templates = await prisma.emailTemplate.findMany({
-      where: { isActive: true, category: { not: null } },
+      where: { ...tenantFilter, isActive: true, category: { not: null } },
       select: { category: true, step: true },
     })
     const brands = Array.from(new Set(templates.map(t => t.category!))).filter(Boolean)
@@ -36,12 +44,14 @@ export async function GET() {
 
     for (const brand of brands) {
       // 해당 브랜드로 1차를 보낸 적 없는 active 업체
+      // (고객 뷰: 본인 테넌트의 발송만 체크 → 어드민이 보냈어도 고객에겐 "미발송")
       const unsent = await prisma.business.findMany({
         where: {
           status: 'active',
           email: { not: null },
           emailSends: {
             none: {
+              ...sendsTenantScope,
               step: 1,
               template: { category: brand },
             },
@@ -78,6 +88,7 @@ export async function GET() {
     for (const brand of brands) {
       const pending = await prisma.emailSend.findMany({
         where: {
+          ...tenantFilter,
           step: 1,
           status: { in: ['sent', 'delivered'] },
           sentAt: { lte: threeDaysAgo },
@@ -87,6 +98,7 @@ export async function GET() {
             status: 'active',
             emailSends: {
               none: {
+                ...sendsTenantScope,
                 step: 2,
                 template: { category: brand },
               },

@@ -16,6 +16,7 @@ import {
   runFollowupAuto,
   scanFollowupCandidates,
 } from '@/lib/email/followup-runner'
+import { getTenantContext, getTenantFilter } from '@/lib/tenant'
 
 const FOLLOWUP_SCHEDULE = [
   { step: 2, delayDays: 3, prevStep: 1 },
@@ -29,13 +30,17 @@ export async function POST(req: NextRequest) {
     const dryRun = body.dryRun || false
     const delaySeconds = (body.delaySeconds as number) ?? 5
 
+    const ctx = await getTenantContext()
+    // 고객은 본인 테넌트만, 어드민은 전체 (null)
+    const scopeTenantId = ctx && !ctx.isAdmin ? ctx.tenantId : null
+
     // 드라이런은 동기 실행 (큐 거치지 않음)
     if (dryRun) {
       return NextResponse.json(await runDryRun())
     }
 
     // 실제 실행: 대상 수 먼저 스캔 (totalTargets 세팅용)
-    const overview = await scanFollowupCandidates()
+    const overview = await scanFollowupCandidates(scopeTenantId)
 
     if (overview.totalCandidates === 0) {
       return NextResponse.json({
@@ -59,7 +64,7 @@ export async function POST(req: NextRequest) {
           .join(', '),
         totalTargets: overview.totalCandidates,
       },
-      runner: (update) => runFollowupAuto(update, delaySeconds * 1000),
+      runner: (update) => runFollowupAuto(update, delaySeconds * 1000, scopeTenantId),
     })
 
     return NextResponse.json({
@@ -84,10 +89,15 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 드라이런 — 기존과 동일한 응답 구조 유지
+// 드라이런 — 기존과 동일한 응답 구조 유지 (tenant 필터 적용)
 async function runDryRun() {
+  const ctx = await getTenantContext()
+  const tenantFilter = await getTenantFilter()
+  const sendsTenantScope =
+    ctx && !ctx.isAdmin && ctx.tenantId ? { tenantId: ctx.tenantId } : {}
+
   const templates = await prisma.emailTemplate.findMany({
-    where: { isActive: true },
+    where: { ...tenantFilter, isActive: true },
     orderBy: { step: 'asc' },
   })
 
@@ -119,6 +129,7 @@ async function runDryRun() {
 
       const candidates = await prisma.emailSend.findMany({
         where: {
+          ...tenantFilter,
           step: prevStep,
           status: { in: ['sent', 'delivered'] },
           sentAt: { lte: targetDate },
@@ -128,6 +139,7 @@ async function runDryRun() {
             status: 'active',
             emailSends: {
               none: {
+                ...sendsTenantScope,
                 step,
                 template: { category: brand },
               },
@@ -174,9 +186,13 @@ async function runDryRun() {
   }
 }
 
-// GET: 팔로업 현황 요약 (카테고리별) — 기존 로직 유지
+// GET: 팔로업 현황 요약 (카테고리별) — tenant 필터 적용
 export async function GET() {
   try {
+    const ctx = await getTenantContext()
+    const tenantFilter = await getTenantFilter()
+    const sendsTenantScope =
+      ctx && !ctx.isAdmin && ctx.tenantId ? { tenantId: ctx.tenantId } : {}
     const results = []
 
     for (const schedule of FOLLOWUP_SCHEDULE) {
@@ -185,7 +201,7 @@ export async function GET() {
       targetDate.setDate(targetDate.getDate() - delayDays)
 
       const templates = await prisma.emailTemplate.findMany({
-        where: { isActive: true, category: { not: null } },
+        where: { ...tenantFilter, isActive: true, category: { not: null } },
         select: { category: true },
       })
       const brands = Array.from(
@@ -201,6 +217,7 @@ export async function GET() {
       for (const brand of brands) {
         const candidates = await prisma.emailSend.findMany({
           where: {
+            ...tenantFilter,
             step: prevStep,
             status: { in: ['sent', 'delivered'] },
             sentAt: { lte: targetDate },
@@ -210,6 +227,7 @@ export async function GET() {
               status: 'active',
               emailSends: {
                 none: {
+                  ...sendsTenantScope,
                   step,
                   template: { category: brand },
                 },
@@ -232,7 +250,7 @@ export async function GET() {
         }
       }
 
-      const alreadySent = await prisma.emailSend.count({ where: { step } })
+      const alreadySent = await prisma.emailSend.count({ where: { ...tenantFilter, step } })
 
       results.push({
         step,
@@ -251,9 +269,9 @@ export async function GET() {
       })
     }
 
-    const firstSent = await prisma.emailSend.count({ where: { step: 1 } })
+    const firstSent = await prisma.emailSend.count({ where: { ...tenantFilter, step: 1 } })
     const totalReplied = await prisma.emailSend.count({
-      where: { repliedAt: { not: null } },
+      where: { ...tenantFilter, repliedAt: { not: null } },
     })
 
     return NextResponse.json({

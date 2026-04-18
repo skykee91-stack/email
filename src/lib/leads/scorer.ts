@@ -28,10 +28,22 @@ export async function calculateLeadScore(businessId: string) {
   else if (score >= 5) tier = 'B'
   else tier = 'C'
 
+  // 가장 최신 발송의 tenantId 를 hotLead 에 기록 (Phase 1 에선 unique 제약 유지라 1업체 1hotLead)
+  const latestSend = sends.length > 0
+    ? sends.reduce((a, b) => (a.createdAt > b.createdAt ? a : b))
+    : null
+  const tenantId = latestSend?.tenantId ?? null
+
   await prisma.hotLead.upsert({
     where: { businessId },
-    update: { score, tier, totalOpens, totalClicks, totalVisits, maxScroll, maxDuration, hasReplied, lastActivity: new Date() },
-    create: { businessId, score, tier, totalOpens, totalClicks, totalVisits, maxScroll, maxDuration, hasReplied, lastActivity: new Date() },
+    update: {
+      tenantId: tenantId ?? undefined,
+      score, tier, totalOpens, totalClicks, totalVisits, maxScroll, maxDuration, hasReplied, lastActivity: new Date(),
+    },
+    create: {
+      tenantId: tenantId ?? undefined,
+      businessId, score, tier, totalOpens, totalClicks, totalVisits, maxScroll, maxDuration, hasReplied, lastActivity: new Date(),
+    },
   })
 
   return { score, tier }

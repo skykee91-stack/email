@@ -36,10 +36,12 @@ export interface FollowupOverview {
 /**
  * 팔로업 후보를 스캔만 해서 총 대상 수와 브랜드별 분포를 반환한다.
  * (runner의 totalTargets 세팅에 사용)
+ * tenantId: null (어드민) 이면 전체, 값이 있으면 해당 테넌트만
  */
-export async function scanFollowupCandidates(): Promise<FollowupOverview> {
+export async function scanFollowupCandidates(tenantId?: string | null): Promise<FollowupOverview> {
+  const tenantFilter: { tenantId?: string } = tenantId ? { tenantId } : {}
   const templates = await prisma.emailTemplate.findMany({
-    where: { isActive: true },
+    where: { ...tenantFilter, isActive: true },
     orderBy: { step: 'asc' },
   })
 
@@ -65,6 +67,7 @@ export async function scanFollowupCandidates(): Promise<FollowupOverview> {
     for (const brand of brands) {
       const count = await prisma.emailSend.count({
         where: {
+          ...tenantFilter,
           step: prevStep,
           status: { in: ['sent', 'delivered'] },
           sentAt: { lte: targetDate },
@@ -74,6 +77,7 @@ export async function scanFollowupCandidates(): Promise<FollowupOverview> {
             status: 'active',
             emailSends: {
               none: {
+                ...tenantFilter,
                 step,
                 template: { category: brand },
               },
@@ -102,17 +106,20 @@ export async function scanFollowupCandidates(): Promise<FollowupOverview> {
  * 팔로업 자동 발송을 실제로 수행한다.
  * - update 콜백으로 진행 상황을 실시간 반영 (sent/skipped/metadata)
  * - delayMs 간격으로 발송
+ * - tenantId: null (어드민) 이면 전체, 값이 있으면 해당 테넌트 팔로업만
  */
 export async function runFollowupAuto(
   update: (partial: Partial<SendJob>) => void,
   delayMs: number,
+  tenantId?: string | null,
 ): Promise<{ sent: number; skipped: number }> {
-  // 1) 템플릿/프로필 로드
+  const tenantFilter: { tenantId?: string } = tenantId ? { tenantId } : {}
+  // 1) 템플릿/프로필 로드 (tenant-scoped)
   const templates = await prisma.emailTemplate.findMany({
-    where: { isActive: true },
+    where: { ...tenantFilter, isActive: true },
     orderBy: { step: 'asc' },
   })
-  const profiles = await prisma.senderProfile.findMany()
+  const profiles = await prisma.senderProfile.findMany({ where: tenantFilter })
 
   const templateMap: Record<string, Record<number, string>> = {}
   const templateNameMap: Record<string, string> = {}
@@ -150,6 +157,7 @@ export async function runFollowupAuto(
 
       const candidates = await prisma.emailSend.findMany({
         where: {
+          ...tenantFilter,
           step: prevStep,
           status: { in: ['sent', 'delivered'] },
           sentAt: { lte: targetDate },
@@ -159,6 +167,7 @@ export async function runFollowupAuto(
             status: 'active',
             emailSends: {
               none: {
+                ...tenantFilter,
                 step,
                 template: { category: brand },
               },
@@ -170,8 +179,6 @@ export async function runFollowupAuto(
             select: { id: true, name: true, email: true, category: true },
           },
         },
-        // 테넌트별로 일관되게 처리하기 위해 tenantId 도 필요
-        // findMany 는 기본적으로 모든 필드 반환하므로 별도 select 없음
         take: 500,
       })
 
