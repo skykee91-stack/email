@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface StepInfo {
   step: number;
@@ -50,6 +50,21 @@ export default function FollowupPage() {
 
   const currentJob = sendStatus?.sendJob;
   const isBusy = currentJob?.status === "running";
+
+  // 팔로업 발송이 완료되는 순간 대기 현황을 다시 불러옴
+  // (같은 job이 3초마다 폴링되므로 ID 기준으로 한 번만 실행)
+  const refreshedJobIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      currentJob?.kind === "followup" &&
+      currentJob?.status === "done" &&
+      currentJob?.id &&
+      refreshedJobIdRef.current !== currentJob.id
+    ) {
+      refreshedJobIdRef.current = currentJob.id;
+      fetchData();
+    }
+  }, [currentJob?.id, currentJob?.status, currentJob?.kind]);
 
   // 팔로업 자동 실행
   const runFollowup = async (dryRun: boolean) => {

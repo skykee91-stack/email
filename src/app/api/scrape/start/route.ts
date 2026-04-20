@@ -310,12 +310,27 @@ export async function POST(req: NextRequest) {
         await saveResultsToDB(true)
       } catch (e: unknown) {
         console.error('최종 DB 업로드 실패:', e)
-        try {
+      }
+
+      // 최종 상태 확정 — 결과 파일 누락/빈 결과로 saveResultsToDB가 업데이트를
+      // 건너뛴 경우에도 running 상태가 남지 않도록 안전장치
+      try {
+        const cur = await prisma.scrapeJob.findUnique({
+          where: { id: job.id },
+          select: { status: true },
+        })
+        if (cur && (cur.status === 'running' || cur.status === 'pending')) {
           await prisma.scrapeJob.update({
             where: { id: job.id },
-            data: { status: 'failed', errorMessage: String(e), finishedAt: new Date() },
+            data: {
+              status: code === 0 ? 'done' : 'failed',
+              errorMessage: code === 0 ? null : `프로세스 종료 (code=${code})`,
+              finishedAt: new Date(),
+            },
           })
-        } catch {}
+        }
+      } catch (e) {
+        console.error('[scrape] 최종 상태 확정 실패:', e)
       }
 
       // 큐에 다음 작업이 있으면 자동 시작
@@ -531,10 +546,28 @@ async function processNextInQueue() {
         }
       } catch (e) {
         console.error('큐 작업 DB 업로드 실패:', e)
-        try {
-          await prisma.scrapeJob.update({ where: { id: next.id }, data: { status: 'failed', errorMessage: String(e), finishedAt: new Date() } })
-        } catch {}
       }
+
+      // 최종 상태 확정 — 결과 파일 누락/빈 결과여도 running 상태가 남지 않도록
+      try {
+        const cur = await prisma.scrapeJob.findUnique({
+          where: { id: next.id },
+          select: { status: true },
+        })
+        if (cur && (cur.status === 'running' || cur.status === 'pending')) {
+          await prisma.scrapeJob.update({
+            where: { id: next.id },
+            data: {
+              status: code === 0 ? 'done' : 'failed',
+              errorMessage: code === 0 ? null : `프로세스 종료 (code=${code})`,
+              finishedAt: new Date(),
+            },
+          })
+        }
+      } catch (e) {
+        console.error('[scrape-queue] 최종 상태 확정 실패:', e)
+      }
+
       // 다음 큐 처리
       processNextInQueue()
     })
