@@ -11,6 +11,10 @@ import { P1COAT_STEP1_SUBJECT, P1COAT_STEP1_HTML } from '@/lib/email/templates/p
 import { P1COAT_STEP2_SUBJECT, P1COAT_STEP2_HTML } from '@/lib/email/templates/p1coat-step2'
 import { P1COAT_STEP3_SUBJECT, P1COAT_STEP3_HTML } from '@/lib/email/templates/p1coat-step3'
 import { P1COAT_STEP4_SUBJECT, P1COAT_STEP4_HTML } from '@/lib/email/templates/p1coat-step4'
+import { MASTERINSIGHT_BLOG_STEP1_SUBJECT, MASTERINSIGHT_BLOG_STEP1_HTML } from '@/lib/email/templates/masterinsight-blog-step1'
+import { MASTERINSIGHT_BLOG_STEP2_SUBJECT, MASTERINSIGHT_BLOG_STEP2_HTML } from '@/lib/email/templates/masterinsight-blog-step2'
+import { MASTERINSIGHT_BLOG_STEP3_SUBJECT, MASTERINSIGHT_BLOG_STEP3_HTML } from '@/lib/email/templates/masterinsight-blog-step3'
+import { MASTERINSIGHT_BLOG_STEP4_SUBJECT, MASTERINSIGHT_BLOG_STEP4_HTML } from '@/lib/email/templates/masterinsight-blog-step4'
 
 const PRESETS: Record<string, { name: string; step: number; subject: string; htmlBody: string }[]> = {
   '셀포': [
@@ -24,6 +28,12 @@ const PRESETS: Record<string, { name: string; step: number; subject: string; htm
     { name: '피원코팅즈 - 2차 기술비교', step: 2, subject: P1COAT_STEP2_SUBJECT, htmlBody: P1COAT_STEP2_HTML },
     { name: '피원코팅즈 - 3차 수익성', step: 3, subject: P1COAT_STEP3_SUBJECT, htmlBody: P1COAT_STEP3_HTML },
     { name: '피원코팅즈 - 4차 마지막', step: 4, subject: P1COAT_STEP4_SUBJECT, htmlBody: P1COAT_STEP4_HTML },
+  ],
+  '마스터인사이트(블로그)': [
+    { name: '마스터인사이트(블로그) - 1차 페인환기', step: 1, subject: MASTERINSIGHT_BLOG_STEP1_SUBJECT, htmlBody: MASTERINSIGHT_BLOG_STEP1_HTML },
+    { name: '마스터인사이트(블로그) - 2차 사회증거', step: 2, subject: MASTERINSIGHT_BLOG_STEP2_SUBJECT, htmlBody: MASTERINSIGHT_BLOG_STEP2_HTML },
+    { name: '마스터인사이트(블로그) - 3차 계약함정', step: 3, subject: MASTERINSIGHT_BLOG_STEP3_SUBJECT, htmlBody: MASTERINSIGHT_BLOG_STEP3_HTML },
+    { name: '마스터인사이트(블로그) - 4차 무료진단', step: 4, subject: MASTERINSIGHT_BLOG_STEP4_SUBJECT, htmlBody: MASTERINSIGHT_BLOG_STEP4_HTML },
   ],
 }
 
