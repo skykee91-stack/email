@@ -83,6 +83,18 @@ export default function ScrapeHistoryPage() {
     return `${Math.round((withEmail / total) * 100)}%`;
   };
 
+  const handleCleanupStuck = async () => {
+    if (!confirm('30분 이상 "진행중/대기" 상태로 멈춰있는 작업을 "실패"로 정리합니다. 계속할까요?')) return;
+    try {
+      const res = await fetch('/api/scrape/cleanup', { method: 'POST' });
+      const data = await res.json();
+      alert(`${data.cleaned ?? 0}건 정리됨`);
+      fetchJobs();
+    } catch (e) {
+      alert(`정리 실패: ${e}`);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -103,13 +115,18 @@ export default function ScrapeHistoryPage() {
       )}
 
       {/* 필터 */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 items-center">
         {["", "done", "failed", "running", "pending"].map((s) => (
           <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
             className={`px-3 py-1.5 rounded text-xs font-semibold ${statusFilter === s ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
             {s === "" ? "전체" : s === "done" ? "성공" : s === "failed" ? "실패" : s === "running" ? "진행중" : "대기"}
           </button>
         ))}
+        <button onClick={handleCleanupStuck}
+          className="ml-auto px-3 py-1.5 bg-red-900/30 text-red-300 rounded text-xs font-semibold hover:bg-red-900/50 border border-red-900/50"
+          title='30분 이상 "진행중/대기"로 멈춘 작업을 실패로 정리'>
+          멈춘 작업 정리
+        </button>
       </div>
 
       {/* 이력 테이블 */}

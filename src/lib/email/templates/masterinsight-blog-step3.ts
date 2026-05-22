@@ -81,7 +81,8 @@ export const MASTERINSIGHT_BLOG_STEP3_HTML = `
                 그래서 우리는 1년 계약을 받지 않습니다.<br>
                 (그런데도 고객 90%가 계속 쓰십니다.)<br><br>
                 혹시 지금 1년 계약 묶여 계신가요?<br>
-                <strong style="color:#0F0F0F;">계약 취소·환불도 같이 도와드립니다.</strong> 부담 갖지 마세요.
+                <strong style="color:#0F0F0F;">계약 취소·환불도 같이 도와드립니다.</strong> 부담 갖지 마세요.<br><br>
+                <strong style="color:#0F0F0F; font-size:16px;">전화 상담 ▶ 010-5610-6023</strong>
               </p>
             </td>
           </tr>
@@ -96,7 +97,7 @@ export const MASTERINSIGHT_BLOG_STEP3_HTML = `
                   <a href="https://masterinsight.netlify.app/" style="display:block; background:#8B6F47; color:#ffffff; font-size:12px; font-weight:700; text-decoration:none; padding:13px 8px; border-radius:24px;">제안서 보기</a>
                 </td>
                 <td width="33%" style="text-align:center; padding:0 4px;">
-                  <a href="tel:01056106023" style="display:block; background:#FAF8F3; color:#0F0F0F; font-size:12px; font-weight:700; text-decoration:none; padding:12px 8px; border-radius:24px; border:1.5px solid #0F0F0F;">전화 상담</a>
+                  <a href="tel:+82-10-5610-6023" style="display:block; background:#FAF8F3; color:#0F0F0F; font-size:12px; font-weight:700; text-decoration:none; padding:12px 8px; border-radius:24px; border:1.5px solid #0F0F0F;">010-5610-6023</a>
                 </td>
               </tr></table>
             </td>

@@ -148,93 +148,103 @@ export async function runFollowupAuto(
     for (const brand of allBrands) {
       if (!templateMap[brand]?.[prevStep] || !templateMap[brand]?.[step]) continue
 
-      const candidates = await prisma.emailSend.findMany({
-        where: {
-          step: prevStep,
-          status: { in: ['sent', 'delivered'] },
-          sentAt: { lte: targetDate },
-          repliedAt: null,
-          template: { category: brand },
-          business: {
-            status: 'active',
-            emailSends: {
-              none: {
-                step,
-                template: { category: brand },
-              },
-            },
-          },
-        },
-        include: {
-          business: {
-            select: { id: true, name: true, email: true, category: true },
-          },
-        },
-        take: 500,
-      })
-
-      if (candidates.length === 0) continue
-
       const templateId = templateMap[brand][step]
       const profileId = profileMap[brand] || profileMap['default']
       const templateName = templateNameMap[templateId] || '없음'
 
       let stepSent = 0
       let stepSkipped = 0
+      let brandCandidatesTotal = 0
+      // 이미 시도한 emailSend.id 를 추적 — 수신거부/무효 이메일처럼 EmailSend 레코드를
+      // 만들지 않고 스킵되는 경우에도 다음 배치에서 다시 선택되지 않도록 차단 (무한 루프 방지)
+      const attemptedIds = new Set<string>()
+      const BATCH_SIZE = 500
 
-      for (let i = 0; i < candidates.length; i++) {
-        const c = candidates[i]
-        try {
-          const result = await sendEmail({
-            businessId: c.businessId,
-            templateId,
-            step,
-            profileId,
-          })
-          if (result.success) {
-            stepSent++
-            totalSent++
-          } else {
-            stepSkipped++
-            totalSkipped++
-          }
-        } catch (e) {
-          stepSkipped++
-          totalSkipped++
-          console.error('[followup] sendEmail 오류:', e)
-        }
-
-        // 진행상황 실시간 반영
-        update({
-          sent: totalSent,
-          skipped: totalSkipped,
-          metadata: {
-            currentStep: step,
-            currentBrand: brand,
-            stepSent,
-            stepSkipped,
+      // 같은 브랜드×단계 조합의 모든 후보를 배치 단위로 순회 (take 500 제한 제거)
+      while (true) {
+        const attemptedArr = Array.from(attemptedIds)
+        const candidates = await prisma.emailSend.findMany({
+          where: {
+            step: prevStep,
+            status: { in: ['sent', 'delivered'] },
+            sentAt: { lte: targetDate },
+            repliedAt: null,
+            template: { category: brand },
+            business: {
+              status: 'active',
+              emailSends: {
+                none: {
+                  step,
+                  template: { category: brand },
+                },
+              },
+            },
+            ...(attemptedArr.length > 0 ? { id: { notIn: attemptedArr } } : {}),
           },
+          include: {
+            business: {
+              select: { id: true, name: true, email: true, category: true },
+            },
+          },
+          take: BATCH_SIZE,
         })
 
-        // 마지막 건은 딜레이 생략
-        const isLastOverall =
-          schedule === FOLLOWUP_SCHEDULE[FOLLOWUP_SCHEDULE.length - 1] &&
-          brand === allBrands[allBrands.length - 1] &&
-          i === candidates.length - 1
-        if (!isLastOverall && delayMs > 0) {
-          await new Promise((r) => setTimeout(r, delayMs))
+        if (candidates.length === 0) break
+
+        for (let i = 0; i < candidates.length; i++) {
+          const c = candidates[i]
+          attemptedIds.add(c.id)
+          brandCandidatesTotal++
+          try {
+            const result = await sendEmail({
+              businessId: c.businessId,
+              templateId,
+              step,
+              profileId,
+            })
+            if (result.success) {
+              stepSent++
+              totalSent++
+            } else {
+              stepSkipped++
+              totalSkipped++
+            }
+          } catch (e) {
+            stepSkipped++
+            totalSkipped++
+            console.error('[followup] sendEmail 오류:', e)
+          }
+
+          // 진행상황 실시간 반영
+          update({
+            sent: totalSent,
+            skipped: totalSkipped,
+            metadata: {
+              currentStep: step,
+              currentBrand: brand,
+              stepSent,
+              stepSkipped,
+            },
+          })
+
+          // 딜레이 (마지막 여부 판별 복잡해서 일관 적용 — 총 시간 영향 미미)
+          if (delayMs > 0) {
+            await new Promise((r) => setTimeout(r, delayMs))
+          }
         }
       }
 
-      stepResults.push({
-        step,
-        category: brand,
-        candidates: candidates.length,
-        sent: stepSent,
-        skipped: stepSkipped,
-        templateName,
-      })
-      update({ metadata: { stepResults } })
+      if (brandCandidatesTotal > 0) {
+        stepResults.push({
+          step,
+          category: brand,
+          candidates: brandCandidatesTotal,
+          sent: stepSent,
+          skipped: stepSkipped,
+          templateName,
+        })
+        update({ metadata: { stepResults } })
+      }
     }
   }
 

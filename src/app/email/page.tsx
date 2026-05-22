@@ -86,19 +86,21 @@ export default function EmailPage() {
 
   const brands = useMemo(() => Object.keys(groupedTemplates), [groupedTemplates]);
 
-  // 첫 브랜드 자동 선택 + 선택한 템플릿의 브랜드 따라가기
+  // 1) 초기 진입 시 첫 브랜드만 자동 선택 — 이후 사용자가 탭으로 자유롭게 변경
   useEffect(() => {
     if (brands.length === 0) return;
-    if (selectedTemplate) {
-      const tpl = templates.find(t => t.id === selectedTemplate);
-      if (tpl) {
-        const b = parseTemplate(tpl.name).brand;
-        if (b && brands.includes(b) && b !== selectedBrand) setSelectedBrand(b);
-        return;
-      }
-    }
-    if (!selectedBrand) setSelectedBrand(brands[0]);
-  }, [brands, selectedTemplate, templates, selectedBrand]);
+    setSelectedBrand(prev => prev || brands[0]);
+  }, [brands]);
+
+  // 2) 템플릿이 바뀌면 그 템플릿의 브랜드로만 동기화
+  // selectedBrand 변경(탭 클릭) 으론 재실행되지 않음 → 사용자가 다른 브랜드 탭 눌러도 되돌아가지 않음
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    const tpl = templates.find(t => t.id === selectedTemplate);
+    if (!tpl) return;
+    const b = parseTemplate(tpl.name).brand;
+    if (b && brands.includes(b)) setSelectedBrand(b);
+  }, [selectedTemplate, templates, brands]);
 
   // 드라이런 (미리보기)
   const handlePreview = async () => {

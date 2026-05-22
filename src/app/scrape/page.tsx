@@ -207,6 +207,34 @@ export default function ScrapePage() {
   const [progress, setProgress] = useState<any>(null); // 진행 상황 + 스킵 로그
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const keywordTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // 자동 수집 모드
+  const [autoMode, setAutoMode] = useState<{
+    enabled: boolean;
+    targetPerJob: number;
+    nextCategory?: { category: string; lastScrapedAt: string | null } | null;
+  } | null>(null);
+
+  const fetchAutoMode = async () => {
+    try {
+      const res = await fetch("/api/scrape/auto-mode");
+      const data = await res.json();
+      setAutoMode(data);
+    } catch {}
+  };
+
+  const toggleAutoMode = async () => {
+    if (!autoMode) return;
+    try {
+      const res = await fetch("/api/scrape/auto-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !autoMode.enabled }),
+      });
+      setAutoMode(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => { fetchAutoMode(); }, []);
 
   // 카테고리/검색어 변경 시 네이버 API로 관련 키워드 자동 조회
   useEffect(() => {
@@ -381,6 +409,41 @@ export default function ScrapePage() {
           {result.message || result.error}
         </div>
       )}
+
+      {/* 자동 수집 모드 토글 */}
+      <div className="mb-4 p-3 bg-gray-900 border border-gray-800 rounded-lg flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggleAutoMode}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              autoMode?.enabled ? "bg-blue-600" : "bg-gray-700"
+            }`}
+            title={autoMode?.enabled ? "자동 모드 끄기" : "자동 모드 켜기"}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                autoMode?.enabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="text-sm font-medium text-white">자동 수집 모드</span>
+          <span className="text-xs text-gray-400 hidden md:inline">
+            {autoMode?.enabled ? "큐 비면 가장 오래된 카테고리부터 자동 추가" : "OFF"}
+          </span>
+        </div>
+        {autoMode?.nextCategory && (
+          <div className="text-xs">
+            <span className="text-gray-400">다음: </span>
+            <span className="text-white font-medium">{autoMode.nextCategory.category}</span>
+            {autoMode.nextCategory.lastScrapedAt && (
+              <span className="text-gray-500 ml-2">
+                (마지막 {new Date(autoMode.nextCategory.lastScrapedAt).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })})
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 연결 상태 표시 */}
       <div className="mb-4 flex items-center gap-2">
