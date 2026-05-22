@@ -33,6 +33,59 @@ interface QueueItem {
 }
 const scrapeQueue: QueueItem[] = []
 
+// 자동 수집 모드 설정 — auto-scrape-config.json 으로 영구 저장
+const AUTO_CONFIG_PATH = path.join(process.cwd(), 'auto-scrape-config.json')
+
+function readAutoConfig(): { enabled: boolean; targetPerJob: number } {
+  try {
+    if (fs.existsSync(AUTO_CONFIG_PATH)) {
+      const raw = JSON.parse(fs.readFileSync(AUTO_CONFIG_PATH, 'utf-8'))
+      return { enabled: !!raw.enabled, targetPerJob: raw.targetPerJob || 1000 }
+    }
+  } catch {}
+  return { enabled: false, targetPerJob: 1000 }
+}
+
+// 큐 비어있고 자동 모드 ON 이면 가장 오래 전 수집한 카테고리를 큐에 추가
+async function maybeAutoFillQueue() {
+  if (scrapeQueue.length > 0) return
+  if (currentJob?.status === 'running') return
+  const cfg = readAutoConfig()
+  if (!cfg.enabled) return
+  try {
+    const rows = await prisma.scrapeJob.groupBy({
+      by: ['category'],
+      where: { status: 'done' },
+      _max: { startedAt: true },
+    })
+    if (rows.length === 0) return
+    const sorted = [...rows].sort((a, b) => {
+      const ta = a._max.startedAt ? new Date(a._max.startedAt).getTime() : 0
+      const tb = b._max.startedAt ? new Date(b._max.startedAt).getTime() : 0
+      return ta - tb
+    })
+    const nextCat = sorted[0].category
+    const newJob = await prisma.scrapeJob.create({
+      data: {
+        region: '전국',
+        category: nextCat,
+        maxResults: cfg.targetPerJob,
+        status: 'pending',
+      },
+    })
+    scrapeQueue.push({
+      id: newJob.id,
+      category: nextCat,
+      region: '',
+      target: cfg.targetPerJob,
+      status: 'waiting',
+    })
+    console.log(`[자동 수집] ${nextCat} 큐에 추가됨 (target: ${cfg.targetPerJob})`)
+  } catch (e) {
+    console.error('[자동 수집] 다음 카테고리 추가 실패:', e)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -216,14 +269,15 @@ export async function POST(req: NextRequest) {
         })
 
         // 수집이력 실시간 업데이트
+        // 중간 저장 시엔 status 를 건드리지 않음 — 2시간 타이머가 'failed' 로 바꾼 뒤
+        // stdout 의 늦은 메시지가 와서 status='running' 으로 덮어쓰는 race condition 방지
         await prisma.scrapeJob.update({
           where: { id: job.id },
           data: {
-            status: isFinal ? 'done' : 'running',
             totalFound: businesses.length,
             totalSaved: totalSavedToDB,
             withEmail,
-            ...(isFinal ? { finishedAt: new Date() } : {}),
+            ...(isFinal ? { status: 'done', finishedAt: new Date() } : {}),
           },
         })
 
@@ -236,6 +290,19 @@ export async function POST(req: NextRequest) {
         console.error('DB 저장 오류:', e)
       }
     }
+
+    // 2시간 백그라운드 타임아웃 — 페이지 열지 않아도 자동 종료
+    const TWO_HOURS = 2 * 60 * 60 * 1000
+    const timeoutId = setTimeout(async () => {
+      try { if (child.pid) process.kill(child.pid, 'SIGKILL') } catch {}
+      try {
+        await prisma.scrapeJob.update({
+          where: { id: job.id },
+          data: { status: 'failed', errorMessage: '2시간 초과 자동 종료', finishedAt: new Date() },
+        })
+      } catch {}
+      if (currentJob?.id === job.id) currentJob.status = 'failed'
+    }, TWO_HOURS)
 
     child.stderr?.on('data', (data: string) => {
       console.error('[scraper stderr]', data.toString())
@@ -302,6 +369,7 @@ export async function POST(req: NextRequest) {
     })
 
     child.on('exit', async (code) => {
+      clearTimeout(timeoutId)
       if (currentJob) {
         currentJob.status = code === 0 ? 'done' : 'failed'
       }
@@ -333,8 +401,12 @@ export async function POST(req: NextRequest) {
         console.error('[scrape] 최종 상태 확정 실패:', e)
       }
 
-      // 큐에 다음 작업이 있으면 자동 시작
+      // 큐에 다음 작업이 있으면 자동 시작 — 비어있으면 자동 모드 검사 후 다음 시도
       processNextInQueue()
+      if (scrapeQueue.length === 0) {
+        await maybeAutoFillQueue()
+        processNextInQueue()
+      }
     })
 
     return NextResponse.json({
@@ -446,17 +518,17 @@ function pollRemoteStatus(jobId: string) {
   }, 5000) // 5초마다 체크
 }
 
-// 큐에서 다음 작업 자동 시작
+// 큐에서 다음 작업 자동 시작 — POST 핸들러와 동일하게 진행률/스킵 로그/중간 저장 지원
 async function processNextInQueue() {
   if (scrapeQueue.length === 0) return
   if (currentJob?.status === 'running') return
 
-  const next = scrapeQueue.shift()
-  if (!next) return
+  const maybeNext = scrapeQueue.shift()
+  if (!maybeNext) return
+  const next: QueueItem = maybeNext
 
   console.log(`[큐] 다음 작업 시작: ${next.category} / ${next.region || '전국'}`)
 
-  // 내부적으로 POST와 같은 로직 실행
   try {
     await prisma.scrapeJob.update({
       where: { id: next.id },
@@ -490,62 +562,149 @@ async function processNextInQueue() {
       mode: 'local',
     }
 
+    // 결과 파일 → DB 저장 (POST 핸들러와 동일 로직, next.id 기준)
+    let lastSavedCount = 0
+    async function saveResultsToDB(isFinal: boolean) {
+      try {
+        const resultPath = `${scraperPath}/web_scrape_result.json`
+        if (!fs.existsSync(resultPath)) return
+
+        let data
+        try {
+          data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
+        } catch {
+          return
+        }
+        const businesses = data.businesses || []
+        if (!isFinal && businesses.length <= lastSavedCount) return
+
+        const newBusinesses = businesses.slice(lastSavedCount).filter((b: { email?: string }) => b.email)
+        if (newBusinesses.length > 0) {
+          const placeIds = newBusinesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
+          const existingByPlace = placeIds.length > 0
+            ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
+            : []
+          const existingPlaceSet = new Set(existingByPlace.map(e => e.placeId))
+          const toCreate = newBusinesses.filter((b: { placeId?: string }) =>
+            !b.placeId || !existingPlaceSet.has(b.placeId)
+          )
+          if (toCreate.length > 0) {
+            await prisma.business.createMany({
+              data: toCreate.map((b: Record<string, string | null>) => ({
+                name: b.name, phone: b.phone || null, email: b.email || null,
+                address: b.address || null, category: b.category || null,
+                region: b.region || null, naverId: b.naverId || null,
+                blogUrl: b.blogUrl || null, homepageUrl: b.homepageUrl || null,
+                placeId: b.placeId || null,
+              })),
+              skipDuplicates: true,
+            })
+          }
+        }
+        lastSavedCount = businesses.length
+
+        const withEmail = businesses.filter((b: { email?: string }) => b.email).length
+        const allPlaceIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean) as string[]
+        const totalSavedToDB = allPlaceIds.length > 0
+          ? await prisma.business.count({ where: { placeId: { in: allPlaceIds } } })
+          : 0
+
+        // 중간 저장 시엔 status 를 건드리지 않음 — 타이머가 'failed' 로 바꾼 뒤
+        // 늦은 stdout 메시지로 status='running' 으로 덮어쓰는 race condition 방지
+        await prisma.scrapeJob.update({
+          where: { id: next.id },
+          data: {
+            totalFound: businesses.length,
+            totalSaved: totalSavedToDB,
+            withEmail,
+            ...(isFinal ? { status: 'done', finishedAt: new Date() } : {}),
+          },
+        })
+
+        if (isFinal) {
+          console.log(`[큐 수집 완료] ${next.category}: ${businesses.length}개 발견, ${totalSavedToDB}개 저장`)
+        }
+      } catch (e) {
+        console.error('[큐] DB 저장 오류:', e)
+      }
+    }
+
+    // 2시간 백그라운드 타임아웃 — 페이지 열지 않아도 자동 종료
+    const TWO_HOURS = 2 * 60 * 60 * 1000
+    const timeoutId = setTimeout(async () => {
+      try { if (child.pid) process.kill(child.pid, 'SIGKILL') } catch {}
+      try {
+        await prisma.scrapeJob.update({
+          where: { id: next.id },
+          data: { status: 'failed', errorMessage: '2시간 초과 자동 종료', finishedAt: new Date() },
+        })
+      } catch {}
+      if (currentJob?.id === next.id) currentJob.status = 'failed'
+    }, TWO_HOURS)
+
     child.stderr?.on('data', (data: string) => {
       console.error('[scraper stderr]', data.toString())
     })
 
     child.stdout?.on('data', (data: string) => {
-      try {
-        const lines = data.trim().split('\n')
-        for (const line of lines) {
+      const lines = data.toString().trim().split('\n')
+      for (const line of lines) {
+        if (!line) continue
+        try {
           const msg = JSON.parse(line)
-          if (msg.found && currentJob) currentJob.found = msg.found
+
+          if (msg.found && currentJob) {
+            currentJob.found = msg.found
+            if (msg.found % 10 === 0) saveResultsToDB(false)
+          }
+
+          if (msg.progress) {
+            prisma.scrapeProgress.upsert({
+              where: { jobId: next.id },
+              create: {
+                jobId: next.id,
+                currentKeyword: msg.progress.keyword || null,
+                currentRegion: msg.progress.region || null,
+                currentBusiness: msg.progress.business || null,
+                lastUpdate: new Date(),
+              },
+              update: {
+                currentKeyword: msg.progress.keyword || null,
+                currentRegion: msg.progress.region || null,
+                currentBusiness: msg.progress.business || null,
+                lastUpdate: new Date(),
+              },
+            }).catch(() => {})
+          }
+
+          if (msg.skipped) {
+            prisma.scrapeSkipLog.create({
+              data: {
+                jobId: next.id,
+                region: msg.skipped.region || '',
+                keyword: msg.skipped.keyword || '',
+                businessName: msg.skipped.business || null,
+                reason: msg.skipped.reason || 'unknown',
+              },
+            }).catch(() => {})
+            prisma.scrapeProgress.update({
+              where: { jobId: next.id },
+              data: { totalSkipped: { increment: 1 }, lastUpdate: new Date() },
+            }).catch(() => {})
+          }
+
           if (msg.done && currentJob) currentJob.status = 'done'
-        }
-      } catch {}
+        } catch {}
+      }
     })
 
     child.on('exit', async (code) => {
+      clearTimeout(timeoutId)
       if (currentJob) currentJob.status = code === 0 ? 'done' : 'failed'
       try {
-        const resultPath = `${scraperPath}/web_scrape_result.json`
-        if (fs.existsSync(resultPath)) {
-          const data = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
-          if (data.businesses?.length > 0) {
-            const businesses = data.businesses
-            const placeIds = businesses.map((b: { placeId?: string }) => b.placeId).filter(Boolean)
-            const emails = businesses.map((b: { email?: string }) => b.email).filter(Boolean)
-            const existingByPlace = placeIds.length > 0
-              ? await prisma.business.findMany({ where: { placeId: { in: placeIds } }, select: { placeId: true } })
-              : []
-            const existingByEmail = emails.length > 0
-              ? await prisma.business.findMany({ where: { email: { in: emails } }, select: { email: true } })
-              : []
-            const existingPlaceSet = new Set(existingByPlace.map(e => e.placeId))
-            const existingEmailSet = new Set(existingByEmail.map(e => e.email))
-            const toCreate = businesses.filter((b: { placeId?: string; email?: string }) =>
-              (!b.placeId || !existingPlaceSet.has(b.placeId)) && (!b.email || !existingEmailSet.has(b.email))
-            )
-            if (toCreate.length > 0) {
-              await prisma.business.createMany({
-                data: toCreate.map((b: Record<string, string | null>) => ({
-                  name: b.name, phone: b.phone || null, email: b.email || null,
-                  address: b.address || null, category: b.category || null,
-                  region: b.region || null, naverId: b.naverId || null,
-                  blogUrl: b.blogUrl || null, homepageUrl: b.homepageUrl || null,
-                  placeId: b.placeId || null,
-                })),
-                skipDuplicates: true,
-              })
-            }
-            await prisma.scrapeJob.update({
-              where: { id: next.id },
-              data: { status: 'done', totalFound: businesses.length, totalSaved: toCreate.length, withEmail: businesses.length, finishedAt: new Date() },
-            })
-          }
-        }
+        await saveResultsToDB(true)
       } catch (e) {
-        console.error('큐 작업 DB 업로드 실패:', e)
+        console.error('[큐] 최종 DB 업로드 실패:', e)
       }
 
       // 최종 상태 확정 — 결과 파일 누락/빈 결과여도 running 상태가 남지 않도록
@@ -568,8 +727,11 @@ async function processNextInQueue() {
         console.error('[scrape-queue] 최종 상태 확정 실패:', e)
       }
 
-      // 다음 큐 처리
       processNextInQueue()
+      if (scrapeQueue.length === 0) {
+        await maybeAutoFillQueue()
+        processNextInQueue()
+      }
     })
   } catch (e) {
     console.error('큐 작업 시작 실패:', e)
@@ -608,18 +770,21 @@ export async function GET() {
     } catch {}
   }
 
-  // 서버 재시작 후 currentJob이 null인데 DB에 running이 남아있으면 정리
-  if (!currentJob) {
-    try {
-      const stuckJobs = await prisma.scrapeJob.updateMany({
-        where: { status: 'running', startedAt: { lt: new Date(Date.now() - 30 * 60 * 1000) } },
-        data: { status: 'failed', errorMessage: '프로세스 종료됨 (자동 정리)', finishedAt: new Date() },
-      })
-      if (stuckJobs.count > 0) {
-        console.log(`[자동 정리] 멈춘 작업 ${stuckJobs.count}건 실패 처리`)
-      }
-    } catch {}
-  }
+  // 30분 이상 running 인 좀비 작업 자동 정리 — currentJob 유무와 무관하게 항상 체크
+  // (현재 실제 돌고 있는 currentJob.id 는 정리 대상에서 제외)
+  try {
+    const stuckJobs = await prisma.scrapeJob.updateMany({
+      where: {
+        status: 'running',
+        startedAt: { lt: new Date(Date.now() - 30 * 60 * 1000) },
+        ...(currentJob?.id ? { NOT: { id: currentJob.id } } : {}),
+      },
+      data: { status: 'failed', errorMessage: '프로세스 종료됨 (자동 정리)', finishedAt: new Date() },
+    })
+    if (stuckJobs.count > 0) {
+      console.log(`[자동 정리] 멈춘 작업 ${stuckJobs.count}건 실패 처리`)
+    }
+  } catch {}
 
   return NextResponse.json({
     job: currentJob,

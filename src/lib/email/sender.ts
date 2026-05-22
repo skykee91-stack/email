@@ -10,7 +10,8 @@ import { verifyEmail } from '@/lib/email/verify'
 const BRAND_TARGET_KEYWORDS: Record<string, string[]> = {
   '셀포': [],
   '피원코팅즈': [
-    '자동차', '카', '차량', '랩핑', '바이크', '자전거', '오토바이',
+    // 단일 글자 '카' 는 '키즈카페'·'고양이카페' 등에 잘못 매치되어 제거
+    '자동차', '차량', '랩핑', '바이크', '자전거', '오토바이',
     '판금', '도장', '튜닝', '디테일', 'PPF', '광택', '폴리싱', '세차', '모터스',
     '타이어', '정비', '카센터', '공업사',
   ],
@@ -54,9 +55,17 @@ export async function sendEmail({ businessId, templateId, step, profileId, tenan
   const business = await prisma.business.findUnique({ where: { id: businessId } })
   if (!business?.email) return { error: '이메일 없음', skipped: true }
 
-  // 2. 수신거부 체크
+  // 2. 수신거부 체크 — 같은 이메일을 쓰는 모든 active 업체를 unsubscribed 로 일괄 전환
+  // EmailSend 레코드를 만들지 않고 skip 하면 다음 팔로업 조회에서 또 후보로 뽑히므로,
+  // business.status 를 바꿔 쿼리 단계에서 제외되게 한다.
   const unsubscribed = await prisma.unsubscribe.findUnique({ where: { email: business.email } })
-  if (unsubscribed) return { error: '수신거부된 이메일', skipped: true }
+  if (unsubscribed) {
+    await prisma.business.updateMany({
+      where: { email: business.email, status: 'active' },
+      data: { status: 'unsubscribed' },
+    })
+    return { error: '수신거부된 이메일', skipped: true }
+  }
 
   // 3. 반송 체크
   if (business.status === 'bounced') return { error: '반송된 이메일', skipped: true }
@@ -220,6 +229,14 @@ export async function sendBulkEmails(params: {
         status: { in: ['sent', 'delivered', 'queued'] },
         template: { category: brandCategory },
       },
+    }
+
+    // 브랜드 타겟 업종 키워드를 DB where 절에 OR 조건으로 추가
+    // (이전엔 fetchLimit 만큼만 가져와서 코드 레벨 isTargetCategory 로 필터하니
+    //  타겟 업종이 최근에만 수집된 경우 가장 오래된 N건이 모두 비타겟이라 0건 발송되는 버그)
+    const targetKeywords = BRAND_TARGET_KEYWORDS[brandCategory]
+    if (targetKeywords && targetKeywords.length > 0) {
+      where.OR = targetKeywords.map(k => ({ category: { contains: k } }))
     }
   } else {
     // 브랜드 없는 템플릿이면 기존 로직 (전체 step 기준)

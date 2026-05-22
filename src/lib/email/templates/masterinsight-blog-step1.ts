@@ -86,7 +86,8 @@ export const MASTERINSIGHT_BLOG_STEP1_HTML = `
                 자체 플랫폼으로 키워드·노출·전환을 상세 셋팅·관리합니다.<br><br>
                 (매월 연장 구조인데도 <strong style="color:#0F0F0F;">고객 90%가 계속 씁니다.</strong>)<br><br>
                 관심 있으시면 아래 버튼으로 확인해보시거나<br>
-                편하게 전화 주세요!
+                편하게 전화 주세요!<br><br>
+                <strong style="color:#0F0F0F; font-size:16px;">전화 상담 ▶ 010-5610-6023</strong>
               </p>
             </td>
           </tr>
@@ -102,7 +103,7 @@ export const MASTERINSIGHT_BLOG_STEP1_HTML = `
                   <a href="https://masterinsight.netlify.app/" style="display:block; background:#8B6F47; color:#ffffff; font-size:12px; font-weight:700; text-decoration:none; padding:13px 8px; border-radius:24px;">제안서 보기</a>
                 </td>
                 <td width="33%" style="text-align:center; padding:0 4px;">
-                  <a href="tel:01056106023" style="display:block; background:#FAF8F3; color:#0F0F0F; font-size:12px; font-weight:700; text-decoration:none; padding:12px 8px; border-radius:24px; border:1.5px solid #0F0F0F;">전화 상담</a>
+                  <a href="tel:+82-10-5610-6023" style="display:block; background:#FAF8F3; color:#0F0F0F; font-size:12px; font-weight:700; text-decoration:none; padding:12px 8px; border-radius:24px; border:1.5px solid #0F0F0F;">010-5610-6023</a>
                 </td>
               </tr></table>
             </td>

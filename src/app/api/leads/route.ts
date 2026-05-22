@@ -14,7 +14,26 @@ export async function GET(req: NextRequest) {
 
   const leads = await prisma.hotLead.findMany({
     where,
-    include: { business: { select: { name: true, email: true, category: true, region: true, phone: true } } },
+    include: {
+      business: {
+        select: {
+          name: true, email: true, category: true, region: true, phone: true,
+          // 어떤 이메일에서 활동을 보였는지 추적용 — 발송 이력 전부 펼침 (UI 에서 브랜드+차수별 표시)
+          emailSends: {
+            select: {
+              step: true,
+              openCount: true,
+              clickCount: true,
+              sentAt: true,
+              repliedAt: true,
+              status: true,
+              template: { select: { category: true, name: true } },
+            },
+            orderBy: { sentAt: 'desc' },
+          },
+        },
+      },
+    },
     orderBy: { score: 'desc' },
     take: limit,
   })

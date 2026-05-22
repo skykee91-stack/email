@@ -33,6 +33,7 @@ export default function BusinessesPage() {
   });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState<string>("");
 
   // 업체 목록 가져오기
   const fetchBusinesses = useCallback(async (page = 1) => {
@@ -67,6 +68,29 @@ export default function BusinessesPage() {
     fetchStats();
   }, [fetchBusinesses]);
 
+  // 직전 다운로드 날짜를 기본값으로 복원 (엑셀 중복 방지용)
+  useEffect(() => {
+    const saved = localStorage.getItem("businesses-last-download");
+    if (saved) setFromDate(saved);
+  }, []);
+
+  // 다운로드 후 오늘 날짜를 "마지막 다운로드"로 저장 → 다음에 기본값으로 들어감
+  const markDownloadedToday = () => {
+    const kstToday = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+    localStorage.setItem("businesses-last-download", kstToday);
+  };
+
+  const handleDownloadAll = () => {
+    window.location.href = "/api/businesses/export";
+    markDownloadedToday();
+  };
+
+  const handleDownloadFiltered = () => {
+    if (!fromDate) { alert("날짜를 선택하세요"); return; }
+    window.location.href = `/api/businesses/export?from=${fromDate}`;
+    markDownloadedToday();
+  };
+
   // 검색
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,15 +100,37 @@ export default function BusinessesPage() {
   return (
     <div>
       {/* 제목 + 엑셀 다운로드 */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-white">업체 목록</h1>
           <p className="text-gray-400 mt-1">수집된 업체 데이터 관리</p>
         </div>
-        <a href="/api/businesses/export"
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold">
-          엑셀 다운로드
-        </a>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2">
+            <label className="text-xs text-gray-400 whitespace-nowrap">이후 날짜</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent text-white text-sm outline-none"
+            />
+            {fromDate && (
+              <button onClick={() => setFromDate("")} className="text-gray-500 hover:text-white text-xs" title="지우기">
+                ×
+              </button>
+            )}
+          </div>
+          <button onClick={handleDownloadFiltered}
+            disabled={!fromDate}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            title="선택 날짜 이후 수집된 업체만 다운로드">
+            날짜 이후만 다운로드
+          </button>
+          <button onClick={handleDownloadAll}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold">
+            전체 다운로드
+          </button>
+        </div>
       </div>
 
       {/* 통계 카드 */}

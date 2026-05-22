@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [tierCounts, setTierCounts] = useState({ S: 0, A: 0, B: 0, C: 0 });
   const [filterTier, setFilterTier] = useState("");
   const [recalculating, setRecalculating] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchLeads = async () => {
     const params = new URLSearchParams({ limit: "50" });
@@ -79,20 +80,60 @@ export default function LeadsPage() {
           <tbody>
             {leads.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-8 text-gray-500">핫 리드 데이터가 없습니다</td></tr>
-            ) : leads.map((lead, i) => (
-              <tr key={lead.id} className="border-b border-gray-800 hover:bg-gray-800/30">
-                <td className="px-4 py-3 text-gray-500">{i + 1}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${tierColors[lead.tier]}`}>{lead.tier}</span>
-                </td>
-                <td className="px-4 py-3 text-white font-medium">{lead.business?.name}</td>
-                <td className="px-4 py-3 text-gray-400">{lead.business?.category || "-"}</td>
-                <td className="px-4 py-3 text-right text-yellow-400 font-bold">{lead.score.toFixed(1)}</td>
-                <td className="px-4 py-3 text-right text-gray-300">{lead.totalOpens}</td>
-                <td className="px-4 py-3 text-right text-gray-300">{lead.totalClicks}</td>
-                <td className="px-4 py-3 text-center">{lead.hasReplied ? "✅" : "-"}</td>
-              </tr>
-            ))}
+            ) : leads.map((lead, i) => {
+              const sends = lead.business?.emailSends || [];
+              const isOpen = expandedId === lead.id;
+              return (
+                <Fragment key={lead.id}>
+                  <tr
+                    className="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer"
+                    onClick={() => setExpandedId(isOpen ? null : lead.id)}
+                    title="클릭하면 발송 이력 펼침"
+                  >
+                    <td className="px-4 py-3 text-gray-500">{i + 1}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${tierColors[lead.tier]}`}>{lead.tier}</span>
+                    </td>
+                    <td className="px-4 py-3 text-white font-medium">
+                      <span className="mr-2 text-gray-500 text-xs">{isOpen ? "▼" : "▶"}</span>
+                      {lead.business?.name}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400">{lead.business?.category || "-"}</td>
+                    <td className="px-4 py-3 text-right text-yellow-400 font-bold">{lead.score.toFixed(1)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{lead.totalOpens}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{lead.totalClicks}</td>
+                    <td className="px-4 py-3 text-center">{lead.hasReplied ? "✅" : "-"}</td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-gray-800/30">
+                      <td colSpan={8} className="px-6 py-3">
+                        {sends.length === 0 ? (
+                          <p className="text-xs text-gray-500">발송 이력이 없습니다</p>
+                        ) : (
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-500 mb-2">발송 이력 (최근순)</p>
+                            {sends.map((s: any, idx: number) => {
+                              const cat = s.template?.category || "기본";
+                              const date = s.sentAt ? new Date(s.sentAt).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" }) : "-";
+                              return (
+                                <div key={idx} className="text-xs flex items-center gap-2">
+                                  <span className="px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 font-medium">{cat}</span>
+                                  <span className="text-gray-400">{s.step}차</span>
+                                  <span className="text-gray-300">열람 <b className="text-white">{s.openCount}</b></span>
+                                  <span className="text-gray-300">클릭 <b className="text-white">{s.clickCount}</b></span>
+                                  {s.repliedAt && <span className="text-green-400">✅ 답장</span>}
+                                  <span className="text-gray-500 ml-auto">{date}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
